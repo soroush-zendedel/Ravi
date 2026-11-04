@@ -1,47 +1,48 @@
-﻿services:
+﻿version: '3.8'
+
+services:
   redis:
     image: redis:7-alpine
-    container_name: litellm-redis
+    container_name: ravi-redis
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6379:6379"
     volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 20
+      - ravi_redis_data:/data
     networks:
-      - litellm-network
+      - ravi-network
+
   db:
     image: postgres:18
-    container_name: litellm-postgres
+    container_name: ravi-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: litellm
-      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env}
+      POSTGRES_DB: ravi
+      POSTGRES_USER: ${POSTGRES_USER:-ravi}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql
+      - ravi_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d litellm"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ravi"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 5
     networks:
-      - litellm-network
+      - ravi-network
 
   litellm:
     image: ghcr.io/berriai/litellm:v1.106.6
-    container_name: litellm-proxy
+    container_name: ravi-proxy
     restart: unless-stopped
-    command: ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
     ports:
-      - "127.0.0.1:4000:4000"
-    env_file:
-      - .env
+      - "4000:4000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/litellm
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ravi}:${POSTGRES_PASSWORD}@db:5432/ravi
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      CLOUDFLARE_AI_BASE_URL: ${CLOUDFLARE_AI_BASE_URL}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
     volumes:
       - ./config.yaml:/app/config.yaml:ro
       - ./docker/litellm/transformation.py:/app/.venv/lib/python3.13/site-packages/litellm/llms/cloudflare/chat/transformation.py:ro
@@ -49,14 +50,14 @@
       db:
         condition: service_healthy
       redis:
-        condition: service_healthy
+        condition: service_started
     networks:
-      - litellm-network
+      - ravi-network
 
 volumes:
-  postgres_data:
-  redis_data:
+  ravi_redis_data:
+  ravi_postgres_data:
 
 networks:
-  litellm-network:
+  ravi-network:
     driver: bridge
