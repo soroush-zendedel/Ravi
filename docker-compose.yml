@@ -1,4 +1,4 @@
-﻿version: '3.8'
+version: '3.8'
 
 services:
   redis:
@@ -24,6 +24,7 @@ services:
       - "5432:5432"
     volumes:
       - ravi_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init-logs.sql:/docker-entrypoint-initdb.d/01-logs.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d ravi"]
       interval: 5s
@@ -43,16 +44,204 @@ services:
       LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
       CLOUDFLARE_AI_BASE_URL: ${CLOUDFLARE_AI_BASE_URL}
       CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN}
+      # Gemini multi-key pool (optional — only set keys you have)
+      GEMINI_API_KEY_1: ${GEMINI_API_KEY_1:-}
+      GEMINI_API_KEY_2: ${GEMINI_API_KEY_2:-}
+      GEMINI_API_KEY_3: ${GEMINI_API_KEY_3:-}
+      GEMINI_API_KEY_4: ${GEMINI_API_KEY_4:-}
+      GEMINI_API_KEY_5: ${GEMINI_API_KEY_5:-}
+      GEMINI_API_KEY_6: ${GEMINI_API_KEY_6:-}
+      GEMINI_API_KEY_7: ${GEMINI_API_KEY_7:-}
+      GEMINI_API_KEY_8: ${GEMINI_API_KEY_8:-}
+      GEMINI_API_KEY_9: ${GEMINI_API_KEY_9:-}
+      GEMINI_API_KEY_10: ${GEMINI_API_KEY_10:-}
+      GEMINI_API_KEY_11: ${GEMINI_API_KEY_11:-}
+      GEMINI_API_KEY_12: ${GEMINI_API_KEY_12:-}
+      GEMINI_API_KEY_13: ${GEMINI_API_KEY_13:-}
+      GEMINI_API_KEY_14: ${GEMINI_API_KEY_14:-}
+      GEMINI_API_KEY_15: ${GEMINI_API_KEY_15:-}
+      GEMINI_API_KEY_16: ${GEMINI_API_KEY_16:-}
+      GEMINI_API_KEY_17: ${GEMINI_API_KEY_17:-}
+      GEMINI_API_KEY_18: ${GEMINI_API_KEY_18:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OLLAMA_API_BASE: ${OLLAMA_API_BASE:-http://ollama:11434}
     volumes:
       - ./config.yaml:/app/config.yaml:ro
+      - ${RAVI_MODELS_DIR:-./models}:/models:ro
       - ./docker/litellm/transformation.py:/app/.venv/lib/python3.13/site-packages/litellm/llms/cloudflare/chat/transformation.py:ro
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_started
+    command: ["--config", "/app/config.yaml", "--port", "4000"]
     networks:
       - ravi-network
+
+  # Optional — enable with: docker compose --profile ollama up -d
+  # or: ravi config backend ollama
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ravi-ollama
+    profiles: ["ollama"]
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ravi_ollama_data:/root/.ollama
+    networks:
+      - ravi-network
+
+  # Default local LLM server (llama.cpp OpenAI-compatible)
+  llama:
+    image: ghcr.io/ggerganov/llama.cpp:server
+    container_name: ravi-llama
+    # Default local LLM server (llama.cpp)
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Host path: set RAVI_MODELS_DIR in .env (Windows e.g. D:/ravi-models)
+      - ${RAVI_MODELS_DIR:-./models}:/models:ro
+    environment:
+      LLAMA_ARG_CTX_SIZE: ${RAVI_CONTEXT:-8192}
+      LLAMA_ARG_N_PARALLEL: 1
+    # Model path is passed at runtime / via command when a GGUF is present
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8080"
+      - "-c"
+      - "${RAVI_CONTEXT:-8192}"
+      - "-t"
+      - "${RAVI_THREADS:-4}"
+    networks:
+      - ravi-network
+
+
+  # Optional smart-log worker (LLM summaries). Enable: --profile smartlog
+  worker:
+    image: python:3.12-slim
+    container_name: ravi-worker
+    # Always started with the stack; RAVI_SMART_LOG only gates LLM tasks
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./:/app
+      - ./logs:/app/logs
+      - ${RAVI_MODELS_DIR:-./models}:/models:ro
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-ravi}:${POSTGRES_PASSWORD:-ravi}@postgres:5432/${POSTGRES_DB:-ravi}
+      REDIS_URL: redis://redis:6379/0
+      RAVI_SMART_LOG: ${RAVI_SMART_LOG:-off}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:-}
+      RAVI_PROXY_URL: http://litellm:4000
+      RAVI_LANG: ${RAVI_LANG:-en}
+    depends_on:
+      - redis
+      - postgres
+    command: >
+      bash -c "pip install -q celery redis psycopg2-binary httpx pyyaml &&
+      PYTHONPATH=/app/src celery -A ravi.worker worker --loglevel=info"
+    networks:
+      - ravi-network
+
+
+  # Celery monitoring UI — http://127.0.0.1:5555
+  flower:
+    image: mher/flower:2.0
+    container_name: ravi-flower
+    profiles: ["flower"]
+    restart: unless-stopped
+    environment:
+      CELERY_BROKER_URL: redis://redis:6379/0
+      FLOWER_PORT: 5555
+      # Optional basic auth: user:password
+      # FLOWER_BASIC_AUTH: ${FLOWER_BASIC_AUTH:-}
+    ports:
+      - "${FLOWER_PORT:-5555}:5555"
+    depends_on:
+      - redis
+    networks:
+      - ravi-network
+    command: >
+      celery --broker=redis://redis:6379/0 flower --port=5555
+
+
+  # Self-hosted Sentry-compatible UI (GlitchTip). Profile: errors
+  # Only started when RAVI_SENTRY=on at start, or via `ravi errors show`
+  glitchtip:
+    image: glitchtip/glitchtip:v4.1
+    container_name: ravi-errors
+    profiles: ["errors"]
+    restart: unless-stopped
+    ports:
+      - "${SENTRY_WEB_PORT:-8000}:8000"
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-ravi}:${POSTGRES_PASSWORD:-ravi}@postgres:5432/${POSTGRES_DB:-ravi}
+      REDIS_URL: redis://redis:6379/1
+      SECRET_KEY: ${SENTRY_SECRET_KEY:-change-me-ravi-errors-secret-key-32chars}
+      PORT: 8000
+      EMAIL_URL: consolemail://
+      GLITCHTIP_DOMAIN: ${SENTRY_WEB_URL:-http://127.0.0.1:8000}
+      DEFAULT_FROM_EMAIL: ravi@localhost
+      CELERY_WORKER_AUTOSCALE: "1,1"
+      CELERY_WORKER_MAX_TASKS_PER_CHILD: "100"
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - ravi-network
+    command: >
+      bash -c "./manage.py migrate --noinput &&
+      ./manage.py start_worker &
+      ./bin/start.sh"
+
+
+  # Laya decision model (English default — lower RAM). Profile: laya
+  laya:
+    image: python:3.12-slim
+    container_name: ravi-laya
+    profiles: ["laya"]
+    restart: unless-stopped
+    volumes:
+      - ${RAVI_MODELS_DIR:-./models}/laya:/models/laya
+    ports:
+      - "${LAYA_PORT:-8090}:8000"
+    environment:
+      LAYA_DEVICE: ${LAYA_DEVICE:-cpu}
+      LAYA_PRELOAD: ${LAYA_PRELOAD:-1}
+      HF_HOME: /models/laya/hf-cache
+      HUGGINGFACE_HUB_CACHE: /models/laya/hf-cache
+      USE_TF: "0"
+      LAYA_MODEL_ID: ${LAYA_MODEL_ID:-convaiinnovations/laya}
+      LAYA_MODEL: ${RAVI_LAYA_VARIANT:-english}
+    networks:
+      - ravi-network
+    # Placeholder command — replace with official laya-serve when weights are present:
+    # pip install "laya[serve]" && laya-serve
+    command: >
+      bash -c "pip install -q fastapi uvicorn httpx &&
+      python -c \"
+from fastapi import FastAPI
+import uvicorn
+app = FastAPI()
+@app.get('/health')
+def h():
+    return {'ok': True, 'service': 'ravi-laya-stub'}
+@app.post('/v1/systemone')
+@app.post('/systemone')
+def s(body: dict):
+    return {'answers': {}, 'stub': True, 'note': 'Install laya[serve] for real inference'}
+uvicorn.run(app, host='0.0.0.0', port=8000)
+\""
+
 
 volumes:
   ravi_redis_data:

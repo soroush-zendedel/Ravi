@@ -1,0 +1,58 @@
+# Ravi runtime profiles — applied by `ravi profile <name>`
+
+profiles:
+  small:
+    description: "Lightest mode — CLI + LLM only (no Laya)"
+    RAVI_LLM: "on"
+    RAVI_VOICE: "off"
+    RAVI_IMAGE: "off"
+    RAVI_VIDEO: "off"
+    RAVI_SMART_LOG: "off"
+    RAVI_SENTRY: "off"
+    RAVI_LAYA: "off"
+    RAVI_LAYA_VARIANT: "english"
+    services_stop: [worker, flower, glitchtip, laya]
+    services_keep: [redis, db, litellm, llama]
+    web_uis: false
+
+  medium:
+    description: "LLM + voice + basic logs + Laya English decision"
+    RAVI_LLM: "on"
+    RAVI_VOICE: "on"
+    RAVI_IMAGE: "off"
+    RAVI_VIDEO: "off"
+    RAVI_SMART_LOG: "off"
+    RAVI_SENTRY: "off"
+    RAVI_LAYA: "on"
+    RAVI_LAYA_VARIANT: "english"
+    services_stop: [flower, glitchtip]
+    services_keep: [redis, db, litellm, llama, worker, laya]
+    web_uis: false
+
+  large:
+    description: "Full features + multilingual Laya always on"
+    RAVI_LLM: "on"
+    RAVI_VOICE: "on"
+    RAVI_IMAGE: "on"
+    RAVI_VIDEO: "on"
+    RAVI_SMART_LOG: "on"
+    RAVI_SENTRY: "on"
+    RAVI_LAYA: "on"
+    RAVI_LAYA_VARIANT: "multilingual"
+    services_stop: [flower, glitchtip]
+    services_keep: [redis, db, litellm, llama, worker, laya]
+    web_uis: false
+
+  extra:
+    description: "Everything on including web UIs + multilingual Laya"
+    RAVI_LLM: "on"
+    RAVI_VOICE: "on"
+    RAVI_IMAGE: "on"
+    RAVI_VIDEO: "on"
+    RAVI_SMART_LOG: "on"
+    RAVI_SENTRY: "on"
+    RAVI_LAYA: "on"
+    RAVI_LAYA_VARIANT: "multilingual"
+    services_stop: []
+    services_keep: [redis, db, litellm, llama, worker, laya, flower, glitchtip]
+    web_uis: true

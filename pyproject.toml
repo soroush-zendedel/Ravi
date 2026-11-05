@@ -1,0 +1,62 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "ravi"
+version = "0.1.0"
+description = "Ravi — Open Source AI Infrastructure. Unified gateway for cloud and local AI models."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Soroush Zendedel & Ravi Contributors" },
+]
+keywords = ["ai", "llm", "litellm", "gateway", "openai", "cloudflare", "gemini"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "typer[all]>=0.12.0",
+    "rich>=13.0.0",
+    "httpx>=0.27.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+ravi = "ravi.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/soroush-zendedel/ravi"
+Documentation = "https://github.com/soroush-zendedel/ravi#readme"
+Repository = "https://github.com/soroush-zendedel/ravi"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ravi"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/config.yaml",
+    "/docker-compose.yml",
+    "/docker",
+    "/docs",
+    "/scripts",
+    "/LICENSE",
+    "/README.md",
+    "/.env.example",
+]

@@ -1,0 +1,9 @@
+{
+  "RAVI_LLM": "on",
+  "RAVI_VOICE": "off",
+  "RAVI_IMAGE": "off",
+  "RAVI_VIDEO": "off",
+  "RAVI_SMART_LOG": "off",
+  "RAVI_SENTRY": "on",
+  "_active_before": "custom"
+}

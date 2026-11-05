@@ -1,26 +1,50 @@
-node_modules/
-.pnpm-store/
-
-# Legacy fan-test packages; keep them local, out of public releases.
-batman-persona-*.zip
-personas/batman/
-
-# Package manager logs
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Operating system files
-.DS_Store
-Thumbs.db
-
-
-# .vscode/
-
-litellm.log
-litellm-error.log
-
+# Environment & secrets
 .env
 .env.*
 !.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Logs
+*.log
+litellm.log
+litellm-error.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker / backups
+*.dump
+*.bak
+backup/
+
+# Test / coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node (if any tooling)
+node_modules/
+.pnpm-store/
+
+plans/

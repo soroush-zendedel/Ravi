@@ -1,0 +1,73 @@
+# Fixed Laya question schemas — Orchestrator selects which to run.
+# Laya does not invent criteria; Qwen must not forge Laya answers.
+
+intent_schema:
+  intent:
+    type: choice
+    instructions: "What is the user's primary intent?"
+    criteria:
+      chat: "General conversation or explanation"
+      code: "Programming or debugging help"
+      filesystem: "Files, paths, or disk usage"
+      process: "Processes or system load"
+      network: "Network or connectivity"
+      image: "Image generation or vision"
+      voice: "Speech or audio"
+      dangerous: "Destructive or irreversible action"
+      other: "Anything else"
+
+risk_schema:
+  destructive:
+    type: noul
+    instructions: "Could this request delete or irreversibly modify user data?"
+  read_only:
+    type: noul
+    instructions: "Can this be completed without modifying system state?"
+  needs_tool:
+    type: noul
+    instructions: "Does answering require calling an external tool or shell command?"
+
+routing_schema:
+  route:
+    type: choice
+    instructions: "Where should the orchestrator send this next?"
+    criteria:
+      answer_directly: "LLM can answer without tools"
+      need_clarification: "Ask the user a clarifying question"
+      use_tools: "Requires tool execution"
+      refuse: "Should be refused for safety"
+      require_approval: "Needs explicit user approval before acting"
+
+
+# Used when the LLM proposes a shell / project command before execution
+command_risk_schema:
+  risk_level:
+    type: choice
+    instructions: "How risky is executing this command on the user machine or project?"
+    criteria:
+      safe: "Read-only or trivial local inspection"
+      low: "Local write with easy undo (edit file, create folder)"
+      medium: "Network, package install, long-running, or git write"
+      high: "Push, force, delete, privilege escalation, or irreversible"
+      critical: "Wipe, format, remote destroy, secrets exposure"
+  needs_approval:
+    type: noul
+    instructions: "Should the CLI require explicit user confirmation before running this command?"
+  long_running:
+    type: noul
+    instructions: "Is this command likely to run for a long time or block the terminal?"
+  touches_remote:
+    type: noul
+    instructions: "Does this command send data to a remote system (push, publish, upload)?"
+  category:
+    type: choice
+    instructions: "What kind of command is this?"
+    criteria:
+      inspect: "Read status, logs, git status, list files"
+      build: "Compile, test, lint"
+      git_safe: "git status, diff, log, branch list"
+      git_write: "git commit, add, checkout"
+      git_remote: "git push, pull, fetch, clone"
+      package: "pip, npm, apt, brew install"
+      destructive: "rm, reset --hard, drop, format"
+      other: "Other shell command"

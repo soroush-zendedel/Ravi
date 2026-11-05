@@ -1,0 +1,53 @@
+# Default context & runtime knobs by approximate hardware class.
+# Ravi picks the first row where system RAM >= min_ram_gb AND CPU cores >= min_cores.
+# Override any value via CLI: ravi config set context 4096
+
+presets:
+  - id: tiny
+    min_ram_gb: 0
+    min_cores: 1
+    context: 2048
+    threads: 2
+    batch: 128
+    gpu_layers: 0
+    note: Low-resource / VMs
+
+  - id: small
+    min_ram_gb: 8
+    min_cores: 4
+    context: 4096
+    threads: 4
+    batch: 256
+    gpu_layers: 0
+    note: 8 GB class laptops
+
+  - id: medium
+    min_ram_gb: 16
+    min_cores: 6
+    context: 8192
+    threads: 6
+    batch: 512
+    gpu_layers: 20
+    note: 16 GB desktops / strong laptops
+
+  - id: large
+    min_ram_gb: 32
+    min_cores: 8
+    context: 16384
+    threads: 8
+    batch: 512
+    gpu_layers: 40
+    note: 32 GB workstations
+
+# Project defaults (used when no override in .env)
+defaults:
+  llm_backend: llama          # llama | ollama
+  language: en
+  chat_model: qwen3-4b-instruct-2507-q4km
+  context: 8192               # overridden by preset when auto
+  voice: off                  # on | off
+  image: off
+  video: off
+  voice_model: kokoro-82m-onnx-int8
+  image_model: sd15-q4_0
+  video_model: none

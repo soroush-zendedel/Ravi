@@ -1,0 +1,15 @@
+models:
+  - id: laya-english
+    hf_repo: convaiinnovations/laya
+    local_dir: english
+    params: "421M"
+    ram_gb: 2
+    languages: [en]
+    description: English decision model default for medium
+  - id: laya-multilingual
+    hf_repo: convaiinnovations/laya-multilingual
+    local_dir: multilingual
+    params: "322M"
+    ram_gb: 2
+    languages: ["100+"]
+    description: Multilingual decision model for large/extra

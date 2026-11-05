@@ -1,0 +1,181 @@
+# Ravi local model catalog
+version: 2
+default_id: qwen3-4b-instruct-2507-q4km
+
+models:
+  # ── Default chat (llama.cpp GGUF) ─────────────────────────
+  - id: qwen3-4b-instruct-2507-q4km
+    name: Qwen3 4B Instruct 2507
+    family: qwen
+    quant: Q4_K_M
+    size_gb: 2.5
+    ram_gb: 6
+    context: 8192
+    capabilities: [chat, code, reasoning, multilingual]
+    engine: llama.cpp
+    ollama_tags: [qwen3:4b]
+    hf_repo: Qwen/Qwen3-4B-Instruct-2507-GGUF
+    hf_file: Qwen3-4B-Instruct-2507-Q4_K_M.gguf
+    blurb: Default chat model · multilingual · llama.cpp
+    default: true
+    languages: [en, fa, ar, zh, de, fr, es, ru, ja, ko]
+
+  - id: qwen3-8b-q4km
+    name: Qwen3 8B
+    family: qwen
+    quant: Q4_K_M
+    size_gb: 4.7
+    ram_gb: 8
+    context: 8192
+    capabilities: [chat, code, reasoning, multilingual]
+    engine: llama.cpp
+    ollama_tags: [qwen3:8b]
+    hf_repo: Qwen/Qwen3-8B-GGUF
+    hf_file: Qwen3-8B-Q4_K_M.gguf
+    blurb: Stronger Qwen3 chat
+    languages: [en, fa, ar, zh, de, fr, es, ru, ja, ko]
+
+  - id: qwen25-3b-q4km
+    name: Qwen2.5 3B
+    family: qwen
+    quant: Q4_K_M
+    size_gb: 1.9
+    ram_gb: 4
+    context: 8192
+    capabilities: [chat, code, multilingual]
+    engine: llama.cpp
+    ollama_tags: [qwen2.5:3b]
+    hf_repo: Qwen/Qwen2.5-3B-Instruct-GGUF
+    hf_file: qwen2.5-3b-instruct-q4_k_m.gguf
+    blurb: Light chat
+    languages: [en, fa, zh, de, fr, es, ru, ja]
+
+  - id: llama32-3b
+    name: Llama 3.2 3B
+    family: llama
+    quant: Q4_K_M
+    size_gb: 2.0
+    ram_gb: 4
+    context: 8192
+    capabilities: [chat, multilingual]
+    engine: llama.cpp
+    ollama_tags: [llama3.2:3b]
+    hf_repo: bartowski/Llama-3.2-3B-Instruct-GGUF
+    hf_file: Llama-3.2-3B-Instruct-Q4_K_M.gguf
+    blurb: Meta small instruct
+    languages: [en, de, fr, es, it, pt]
+
+  - id: qwen25-14b-q4km
+    name: Qwen2.5 14B
+    family: qwen
+    quant: Q4_K_M
+    size_gb: 8.4
+    ram_gb: 16
+    context: 8192
+    capabilities: [chat, code, reasoning, multilingual]
+    engine: llama.cpp
+    ollama_tags: [qwen2.5:14b]
+    hf_repo: Qwen/Qwen2.5-14B-Instruct-GGUF
+    hf_file: qwen2.5-14b-instruct-q4_k_m.gguf
+    blurb: 16 GB class chat
+    languages: [en, fa, ar, zh, de, fr, es, ru, ja, ko]
+
+  - id: qwen25-32b-q4km
+    name: Qwen2.5 32B
+    family: qwen
+    quant: Q4_K_M
+    size_gb: 18.5
+    ram_gb: 32
+    context: 8192
+    capabilities: [chat, code, reasoning, multilingual]
+    engine: llama.cpp
+    ollama_tags: [qwen2.5:32b]
+    hf_repo: Qwen/Qwen2.5-32B-Instruct-GGUF
+    hf_file: qwen2.5-32b-instruct-q4_k_m.gguf
+    blurb: 32 GB class chat
+    languages: [en, fa, ar, zh, de, fr, es, ru, ja, ko]
+
+  # ── Vision (optional) ────────────────────────────────────
+  - id: qwen25-vl-7b-q4km
+    name: Qwen2.5-VL 7B
+    family: qwen-vl
+    quant: Q4_K_M
+    size_gb: 5.2
+    ram_gb: 12
+    context: 8192
+    capabilities: [chat, vision, multilingual]
+    engine: llama.cpp
+    ollama_tags: [qwen2.5vl:7b]
+    hf_repo: bartowski/Qwen2.5-VL-7B-Instruct-GGUF
+    hf_file: Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf
+    blurb: Image understanding (not generation)
+    languages: [en, zh, de, fr, es, ja]
+
+  # ── Voice / TTS ──────────────────────────────────────────
+  - id: kokoro-82m-onnx-int8
+    name: Kokoro 82M
+    family: kokoro
+    quant: INT8
+    size_gb: 0.1
+    ram_gb: 1
+    context: n/a
+    capabilities: [audio_tts]
+    engine: onnx
+    ollama_tags: []
+    hf_repo: onnx-community/Kokoro-82M-ONNX
+    hf_file: onnx/model_int8.onnx
+    blurb: Fast local TTS (ONNX Runtime · INT8)
+    languages: [en]
+    role: voice
+
+  # ── Image generation ─────────────────────────────────────
+  - id: sd15-q4_0
+    name: Stable Diffusion 1.5
+    family: sd
+    quant: Q4_0
+    size_gb: 2.0
+    ram_gb: 6
+    context: n/a
+    capabilities: [image_gen]
+    engine: stable-diffusion.cpp
+    ollama_tags: []
+    hf_repo: lea-briche/stable-diffusion-v1-5-gguf
+    hf_file: sd-v1-5-Q4_0.gguf
+    blurb: Local image generation via stable-diffusion.cpp
+    languages: [en]
+    role: image
+
+  # ── Video (off by default) ───────────────────────────────
+  - id: wan-video-placeholder
+    name: Local Video (experimental)
+    family: video
+    quant: n/a
+    size_gb: 0
+    ram_gb: 16
+    context: n/a
+    capabilities: []
+    engine: none
+    ollama_tags: []
+    hf_repo: null
+    hf_file: null
+    blurb: Placeholder · enable with ravi video on (not bundled by default)
+    languages: [en]
+    role: video
+    disabled_by_default: true
+
+capability_labels:
+  chat: Chat
+  vision: Vision
+  image_gen: Image gen
+  audio_asr: Speech→text
+  audio_tts: Text→speech
+  code: Code
+  reasoning: Reasoning
+  multilingual: Multilingual
+
+capability_notes: |
+  Default stack: llama.cpp + Qwen3-4B-Instruct-2507 Q4_K_M (context 8192).
+  Image gen uses stable-diffusion.cpp and loads only when needed.
+  Voice uses Kokoro ONNX INT8 via ONNX Runtime.
+  Video is available but OFF by default.
+  Most chat GGUFs do not generate images or speech.
