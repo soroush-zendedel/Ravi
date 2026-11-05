@@ -11,7 +11,8 @@ profiles:
     RAVI_SENTRY: "off"
     RAVI_LAYA: "off"
     RAVI_LAYA_VARIANT: "english"
-    services_stop: [worker, flower, glitchtip, laya]
+    RAVI_LAYA_MODEL: "laya-english"
+    services_stop: [worker, worker-beat, flower, glitchtip, laya]
     services_keep: [redis, db, litellm, llama]
     web_uis: false
 
@@ -25,8 +26,9 @@ profiles:
     RAVI_SENTRY: "off"
     RAVI_LAYA: "on"
     RAVI_LAYA_VARIANT: "english"
+    RAVI_LAYA_MODEL: "laya-english"
     services_stop: [flower, glitchtip]
-    services_keep: [redis, db, litellm, llama, worker, laya]
+    services_keep: [redis, db, litellm, llama, laya]
     web_uis: false
 
   large:
@@ -39,8 +41,9 @@ profiles:
     RAVI_SENTRY: "on"
     RAVI_LAYA: "on"
     RAVI_LAYA_VARIANT: "multilingual"
+    RAVI_LAYA_MODEL: "laya-multilingual"
     services_stop: [flower, glitchtip]
-    services_keep: [redis, db, litellm, llama, worker, laya]
+    services_keep: [redis, db, litellm, llama, worker, worker-beat, laya]
     web_uis: false
 
   extra:
@@ -53,6 +56,7 @@ profiles:
     RAVI_SENTRY: "on"
     RAVI_LAYA: "on"
     RAVI_LAYA_VARIANT: "multilingual"
+    RAVI_LAYA_MODEL: "laya-multilingual"
     services_stop: []
-    services_keep: [redis, db, litellm, llama, worker, laya, flower, glitchtip]
+    services_keep: [redis, db, litellm, llama, worker, worker-beat, laya, flower, glitchtip]
     web_uis: true

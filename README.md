@@ -15,6 +15,8 @@ It is built on top of [LiteLLM](https://github.com/BerriAI/litellm) and ships wi
 - **Cloudflare patch** — Fixes array-style content messages that break stock LiteLLM v1.106.6
 - **CLI first** — `ravi start`, `ravi stop`, `ravi health`, `ravi models`, `ravi chat`, …
 - **Independent deployment** — Docker Compose with dedicated volumes and network
+- **Optional local inference** — llama.cpp starts only when a GGUF model is available
+- **Extensible background jobs** — prebuilt Celery worker and scheduler images for smart logs
 - **MIT licensed**
 
 ---
@@ -99,7 +101,7 @@ ravi keys add gemini           # interactive, or: --key AIza...
 ravi keys add groq --key gsk_...
 ravi keys add cloudflare --token ... --account ACCOUNT_ID
 ravi keys list
-ravi use gemini-2.0-flash      # set default model
+ravi use gemini-3.5-flash      # set default model
 ravi chat "hello"              # uses default — no --model needed
 ravi chat "hi" -m groq-llama-3.1-8b
 ```
@@ -116,9 +118,17 @@ ravi init --local               # first-time setup with local model picker
 ravi start                      # auto-init if needed → stack up → interactive chat
 ```
 
-- Models live in Ollama's data volume (`ravi_ollama_data`) and optionally `./models`.
+- Ollama models live in the `ravi_ollama_data` volume. GGUF models live in `RAVI_MODELS_DIR`.
 - If a local model is already installed, `ravi init` / `ravi start` picks it automatically (no prompt).
 - Welcome line on chat is `RAVI_WELCOME_MESSAGE` in `.env` (editable).
+
+## Laya decision service
+
+Laya runs through its official `laya-serve` HTTP service and loads the checkpoint downloaded with `ravi local laya pull`. The server uses files from `RAVI_MODELS_DIR/laya`; it does not return placeholder answers. The selected checkpoint follows `RAVI_LAYA_VARIANT` (`english` or `multilingual`), and the optional `laya` Compose profile starts only when the requested local weights are available.
+
+## Smart log workers
+
+Smart log processing is off by default. Set `RAVI_SMART_LOG=on` or use `ravi smartlog on` to start the prebuilt Celery worker and its scheduler. Python dependencies are installed while the image is built, not each time a container starts.
 
 ## CLI Reference
 
@@ -135,6 +145,7 @@ ravi start                      # auto-init if needed → stack up → interacti
 | `ravi health`      | HTTP health check                                |
 | `ravi models`      | List models from the running proxy               |
 | `ravi config`      | Summarize models defined in `config.yaml`        |
+| `ravi config validate` | Validate configured provider model identifiers |
 | `ravi chat "…"`    | Quick test completion                            |
 | `ravi ui`          | Open Admin UI in browser + show login credentials|
 | `ravi show-key`    | Print master key / UI username & password        |
@@ -152,10 +163,12 @@ ravi/
 ├── pyproject.toml          # CLI package
 ├── .env.example
 ├── config.yaml             # LiteLLM model list + router settings
-├── docker-compose.yml      # redis, postgres, litellm (ravi-*)
+├── docker-compose.yml      # gateway and optional services
 ├── docker/
-│   └── litellm/
-│       └── transformation.py   # Cloudflare content-array patch
+│   ├── laya/               # local inference image
+│   ├── llama/              # model-aware server entrypoint
+│   ├── litellm/            # gateway image and Cloudflare patch
+│   └── worker/             # background worker image
 ├── src/
 │   └── ravi/
 │       ├── __init__.py

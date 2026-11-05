@@ -248,6 +248,42 @@ def run_bootstrap(root: Path) -> BootstrapReport:
         report.checks.extend(_check_toggles(env))
         report.checks.append(_check_docker())
 
+        try:
+            from ravi.configedit import load_config, validate_config
+
+            model_issues = validate_config(load_config(root / "config.yaml"))
+            if model_issues:
+                for issue_index, issue in enumerate(model_issues):
+                    report.checks.append(
+                        CheckResult(
+                            id=f"model_config_{issue_index + 1}",
+                            label="Provider model configuration",
+                            ok=issue.severity != "error",
+                            severity=issue.severity,
+                            detail=issue.message,
+                            hint="Run `ravi config validate` after updating config.yaml.",
+                        )
+                    )
+            else:
+                report.checks.append(
+                    CheckResult(
+                        id="model_config",
+                        label="Provider model configuration",
+                        ok=True,
+                        detail="Gemini upstream model IDs are verified.",
+                    )
+                )
+        except Exception as e:
+            report.checks.append(
+                CheckResult(
+                    id="model_config",
+                    label="Provider model configuration",
+                    ok=False,
+                    severity="warn",
+                    detail=str(e),
+                )
+            )
+
         # Auto-wire local default model if file exists and LLM is on
         if rsettings.is_on(env, "RAVI_LLM") or (env.get("RAVI_LLM") or "on").lower() != "off":
             try:

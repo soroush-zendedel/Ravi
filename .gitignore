@@ -47,4 +47,7 @@ htmlcov/
 node_modules/
 .pnpm-store/
 
-plans/
+# Keep the audit input and its remediation record versionable; ignore other scratch plans.
+plans/*
+!plans/ravi-report.md
+!plans/ravi-remediation.md

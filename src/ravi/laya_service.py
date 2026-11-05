@@ -30,6 +30,17 @@ def compose(root: Path, *args: str) -> tuple[int, str]:
 
 
 def start(root: Path) -> tuple[bool, str]:
+    env_path = eu.env_path(root)
+    env = eu.parse_env(env_path) if env_path.is_file() else {}
+    selected_model = (env.get("RAVI_LAYA_MODEL") or "").strip().lower()
+    if selected_model not in ("laya-english", "laya-multilingual"):
+        variant = (env.get("RAVI_LAYA_VARIANT") or "english").strip().lower()
+        model = (
+            "laya-multilingual"
+            if variant in ("multilingual", "multi", "full")
+            else "laya-english"
+        )
+        eu.write_env_value(env_path, "RAVI_LAYA_MODEL", model)
     code, out = compose(root, "--profile", "laya", "up", "-d", "laya")
     return code == 0, out
 

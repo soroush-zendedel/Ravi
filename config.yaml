@@ -114,13 +114,22 @@ model_list:
   litellm_params:
     model: gemini/gemini-3.5-flash-lite
     api_key: os.environ/GEMINI_API_KEY_18
+# Legacy Ravi aliases retained for clients; Gemini 2.0 API endpoints were shut down.
 - model_name: gemini-2.0-flash
   litellm_params:
-    model: gemini/gemini-2.0-flash
+    model: gemini/gemini-3.5-flash
     api_key: os.environ/GEMINI_API_KEY_1
 - model_name: gemini-2.0-flash-lite
   litellm_params:
-    model: gemini/gemini-2.0-flash-lite
+    model: gemini/gemini-3.5-flash-lite
+    api_key: os.environ/GEMINI_API_KEY_1
+- model_name: gemini-3.5-flash
+  litellm_params:
+    model: gemini/gemini-3.5-flash
+    api_key: os.environ/GEMINI_API_KEY_1
+- model_name: gemini-2.5-flash-lite
+  litellm_params:
+    model: gemini/gemini-2.5-flash-lite
     api_key: os.environ/GEMINI_API_KEY_1
 - model_name: gemini-2.5-flash
   litellm_params:

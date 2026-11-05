@@ -18,7 +18,7 @@ class ServiceState:
 
 
 CORE_SERVICES = ("redis", "db", "litellm")  # litellm may be named differently
-OPTIONAL_SERVICES = ("worker", "llama", "ollama", "flower")
+OPTIONAL_SERVICES = ("worker", "worker-beat", "llama", "ollama", "flower")
 
 
 def _compose_ps(root: Path) -> str:
@@ -73,18 +73,63 @@ def list_running_names(root: Path) -> set[str]:
     return names
 
 
+def _enabled(env: dict[str, str], key: str, default: str = "off") -> bool:
+    return (env.get(key) or default).strip().lower() in ("on", "1", "true", "yes")
+
+
+def _models_root(root: Path, env: dict[str, str]) -> Path:
+    value = (env.get("RAVI_MODELS_DIR") or "./models").strip()
+    path = Path(value).expanduser()
+    return path if path.is_absolute() else root / path
+
+
+def _llama_model_available(root: Path, env: dict[str, str]) -> bool:
+    """Only include the llama profile when a GGUF inside the mounted model tree exists."""
+    models_root = _models_root(root, env)
+    configured = (env.get("RAVI_LOCAL_GGUF") or "").strip()
+    if configured:
+        path = Path(configured).expanduser()
+        if not path.is_absolute():
+            path = root / path
+        try:
+            path.resolve().relative_to(models_root.resolve())
+        except ValueError:
+            return False
+        return path.is_file() and path.suffix.lower() == ".gguf"
+
+    return models_root.is_dir() and any(
+        path.is_file() for path in models_root.rglob("*.gguf")
+    )
+
+
 def compose_up_all(root: Path, *, build: bool = False) -> tuple[bool, str]:
-    """Start core stack. Flower is NOT included (on-demand). Errors UI only if RAVI_SENTRY=on."""
+    """Start the core stack and only activate optional profiles configured for use."""
+    env_path = eu.env_path(root)
+    env = eu.parse_env(env_path) if env_path.is_file() else {}
     cmd = [
         "docker",
         "compose",
         "-f",
         str(root / "docker-compose.yml"),
-        "--profile",
-        "llama",
-        "up",
-        "-d",
     ]
+    profiles: list[str] = []
+    if _enabled(env, "RAVI_SMART_LOG"):
+        profiles.append("smartlog")
+    if _enabled(env, "RAVI_LLM", default="on"):
+        backend = (env.get("RAVI_LLM_BACKEND") or "llama").strip().lower()
+        if backend == "ollama":
+            profiles.append("ollama")
+        elif backend in ("llama", "llama.cpp", "llamacpp") and _llama_model_available(
+            root, env
+        ):
+            profiles.append("llama")
+        elif backend in ("llama", "llama.cpp", "llamacpp") and (
+            env.get("RAVI_LOCAL_MODEL") or ""
+        ).strip():
+            profiles.append("ollama")
+    for profile in profiles:
+        cmd.extend(["--profile", profile])
+    cmd.extend(["up", "-d"])
     # Flower + GlitchTip are on-demand (ravi workers web / ravi errors show)
     # to avoid idle RAM use. RAVI_SENTRY only enables the SDK at runtime.
     if build:
@@ -156,6 +201,13 @@ def collect_status(root: Path) -> list[ServiceState]:
         )
     )
     states.append(ServiceState("worker", has("worker") or has("ravi-worker"), "celery worker"))
+    states.append(
+        ServiceState(
+            "worker-beat",
+            has("worker-beat") or has("ravi-worker-beat"),
+            "celery scheduler",
+        )
+    )
     states.append(ServiceState("llama", has("llama") or has("ravi-llama"), "llama.cpp (optional until model mounted)"))
     states.append(ServiceState("flower", has("flower") or has("ravi-flower"), "http://127.0.0.1:5555"))
     return states

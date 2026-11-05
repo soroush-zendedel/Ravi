@@ -1,137 +1,96 @@
-# Ravi
-## زیرساخت مستقل و متن‌باز هوش مصنوعی
+# Ravi Architecture
 
 **Open Source AI Infrastructure**
 
 *Powered by Openness. Built for Everyone.*
 
-نسخه سند: 1.2  
-وضعیت: پیشنهادی — سند پایه طراحی و توسعه  
-مجوز: MIT  
-نام مخزن پیشنهادی: `ravi`  
-محصول میزبان اولیه: DevOS
+Document version: 1.2
+Status: Architecture baseline and development proposal
+License: MIT
+Initial consumer: DevOS; Ravi must remain an independent project.
+
+> This document describes both the intended architecture and a historical deployment baseline. Section 23 records infrastructure details from an earlier host project; those values are not a statement of the current deployment. Verify service names, endpoints, and persistent volumes before any migration.
 
 ---
 
-# ۱. خلاصه اجرایی
+## 1. Executive summary
 
-Ravi یک زیرساخت مستقل، ماژولار، توسعه‌پذیر و متن‌باز برای اتصال، مدیریت، هماهنگی و استفاده از فناوری‌های مختلف هوش مصنوعی است.
+Ravi is an independent, modular, extensible, open-source infrastructure for connecting, managing, coordinating, and using AI technologies. It provides a consistent layer between applications and cloud providers, inference engines, and other AI services.
 
-هدف Ravi ایجاد یک لایه یکپارچه میان برنامه‌های کاربردی و دنیای متنوع فناوری‌های هوش مصنوعی است؛ به‌گونه‌ای که مصرف‌کنندگان بتوانند بدون وابستگی مستقیم به ارائه‌دهندگان، موتورهای استنتاج یا ابزارهای خاص، از قابلیت‌های هوش مصنوعی استفاده کنند.
+Ravi is more than an API gateway, but it should not rebuild mature tools. Its job is to integrate existing tools as an independent infrastructure and manage their configuration, communication, and lifecycle.
 
-Ravi صرفاً یک API Gateway نیست و در عین حال نباید تمام ابزارهای موجود را از نو پیاده‌سازی کند.
+Planned capabilities include:
 
-این پروژه باید بتواند ابزارهای بالغ و موجود را در قالب یک زیرساخت مستقل کنار یکدیگر قرار دهد و ارتباط، تنظیمات و چرخه عمر آن‌ها را مدیریت کند.
+- Cloud language and multimodal models.
+- Local inference engines.
+- Model selection and routing.
+- Provider integration.
+- Coordination among AI services.
+- Agent and tool integration.
+- Memory and context services.
+- Infrastructure configuration and deployment.
+- Health and service status monitoring.
+- A standard API for consumer applications.
 
-قابلیت‌های موردنظر:
+**Ravi belongs to no single consumer project. Different projects should be able to use it.**
 
-- اتصال به مدل‌های زبانی و چندرسانه‌ای ابری
-- اتصال به موتورهای اجرای مدل‌های محلی
-- مسیریابی و انتخاب هوشمند مدل‌ها
-- مدیریت و یکپارچه‌سازی ارائه‌دهندگان
-- هماهنگی میان سرویس‌های مختلف هوش مصنوعی
-- امکان استفاده از Agentها و ابزارهای هوشمند
-- امکان اتصال سرویس‌های حافظه و مدیریت زمینه
-- مدیریت تنظیمات و استقرار زیرساخت
-- پایش سلامت و وضعیت اجزای سیستم
-- ارائه API استاندارد به برنامه‌های مصرف‌کننده
+DevOS is an important early consumer, but Ravi must run independently on a server, personal computer, virtual machine, or Docker environment.
 
-**اصل بنیادی: Ravi متعلق به هیچ پروژه مصرف‌کننده‌ای نیست؛ پروژه‌های مختلف از Ravi استفاده می‌کنند.**
+## 2. Vision and mission
 
-DevOS نخستین مصرف‌کننده مهم Ravi خواهد بود، اما Ravi باید به‌تنهایی روی سرور، رایانه شخصی، ماشین مجازی یا محیط Docker قابل اجرا باشد.
+### Vision
 
-# ۲. چشم‌انداز و مأموریت
+Build an open infrastructure that separates access to AI from any one provider, model, inference engine, or operating environment. Ravi should coordinate the AI ecosystem, reduce the complexity of connecting tools, and expose their capabilities through standard interfaces.
 
-## چشم‌انداز
+### Mission
 
-ساخت یک زیرساخت عمومی و آزاد که دسترسی به هوش مصنوعی را از وابستگی به ارائه‌دهنده، مدل، موتور اجرا و محیط عملیاتی جدا کند.
+Provide a platform where:
 
-Ravi باید نقش یک لایه هماهنگ‌کننده را در اکوسیستم هوش مصنوعی ایفا کند؛ پیچیدگی ارتباط میان ابزارها را کاهش دهد و امکانات آن‌ها را از طریق رابط‌های استاندارد در اختیار برنامه‌ها قرار دهد.
+1. Developers can add a provider without changing every consumer application.
+2. Applications can switch between local and cloud models.
+3. Multiple models and providers can follow shared policies.
+4. AI capabilities can be offered as independent services.
+5. Developers can install, run, extend, and customize Ravi.
+6. Mature tools can work together without unnecessary rewrites.
+7. Ravi does not depend on a mandatory commercial service or an owner-controlled central server.
 
-## مأموریت
+## 3. Foundational design principles
 
-فراهم‌کردن بستری که در آن:
+### 3.1. Independence
 
-1. توسعه‌دهنده بتواند ارائه‌دهنده هوش مصنوعی جدیدی اضافه کند، بدون آنکه مجبور باشد تمام برنامه‌های مصرف‌کننده را تغییر دهد.
-2. یک برنامه بتواند میان مدل محلی و ابری جابه‌جا شود.
-3. چند مدل و ارائه‌دهنده بتوانند تحت سیاست‌های مشترک استفاده شوند.
-4. قابلیت‌های هوش مصنوعی به‌صورت سرویس‌های مستقل در اختیار برنامه‌ها قرار گیرند.
-5. توسعه‌دهندگان بتوانند Ravi را نصب، اجرا، توسعه و شخصی‌سازی کنند.
-6. ابزارهای موجود بدون بازنویسی غیرضروری در کنار یکدیگر کار کنند.
-7. Ravi به سرویس تجاری یا زیرساخت اختصاصی سازنده وابسته نباشد.
+Ravi should have its own repository, development lifecycle, versioning, images, documentation, configuration, tests, and release process. Ravi files, services, databases, and internal settings should not be copied into DevOS or other consumer repositories. Consumers should connect through APIs and standard protocols, using an internal network when appropriate.
 
-# ۳. اصول بنیادین طراحی
+### 3.2. Open source
 
-## ۳.۱. استقلال کامل
+Ravi is released under the MIT License. Use, modification, development, distribution, and independent deployment are allowed under that license. Ravi must not require a paid subscription, proprietary license, commercial service, or central server owned by its maintainers.
 
-Ravi باید مخزن Git، چرخه توسعه، نسخه‌بندی، تصاویر Docker، مستندات، تنظیمات، تست‌ها و فرآیند انتشار مستقل داشته باشد.
+### 3.3. Provider independence
 
-هیچ فایل، سرویس، پایگاه داده یا تنظیمات داخلی Ravi نباید در مخزن DevOS یا پروژه‌های مصرف‌کننده کپی شود.
+No provider should become an irreplaceable component. Cloudflare, Google, OpenAI, Anthropic, and other providers should be attachable through independent integrations. Losing access to one provider must not disable all of Ravi.
 
-ارتباط مصرف‌کنندگان با Ravi از طریق API، پروتکل‌های استاندارد و در صورت نیاز شبکه داخلی انجام می‌شود.
+### 3.4. Cloud and local AI
 
-## ۳.۲. متن‌باز واقعی
+Ravi should support both cloud models accessed through external APIs and local models running on user-owned hardware or private infrastructure. They should be usable under shared routing and usage policies.
 
-پروژه با مجوز MIT منتشر می‌شود.
+### 3.5. Modularity
 
-استفاده، تغییر، توسعه، توزیع و استقرار مستقل آن آزاد است؛ با رعایت شرایط مجوز MIT.
+Each capability should be an independent module where practical. Adding a feature should not require rewriting the core or making broad changes across unrelated modules.
 
-Ravi نباید به سرویس تجاری اجباری، اشتراک پولی، لایسنس اختصاصی یا سرور مرکزی متعلق به سازندگان وابسته باشد.
+### 3.6. Reuse instead of rebuilding
 
-## ۳.۳. استقلال از ارائه‌دهنده
+When a mature tool already provides a capability, Ravi should integrate it rather than create a parallel implementation. For example, Ravi should use LiteLLM's provider and model management, a local engine's own management API, and an existing memory or vector database when they meet the need. Ravi should focus on connections, coordination, and integration. This lowers maintenance cost and keeps Ravi aligned with improvements in its underlying tools.
 
-هیچ ارائه‌دهنده‌ای نباید به جزء غیرقابل‌جایگزین Ravi تبدیل شود.
+### 3.7. Independent use
 
-Cloudflare، Google، OpenAI، Anthropic و سایر ارائه‌دهندگان باید از طریق ابزارها یا Adapterهای مستقل قابل اتصال باشند.
+Ravi must not depend on DevOS. Any person or project should be able to deploy it with Docker Compose or another documented method.
 
-قطع دسترسی به یک ارائه‌دهنده نباید کل زیرساخت را از کار بیندازد.
+### 3.8. Security and data ownership
 
-## ۳.۴. پشتیبانی هم‌زمان از Cloud و Local
+Deployment administrators control secrets, API keys, request history, and user data. Ravi must not send data to external services without configuration and explicit authorization.
 
-Ravi باید از ابتدا برای دو دنیای متفاوت طراحی شود:
+## 4. Ravi's place in the overall architecture
 
-- هوش مصنوعی ابری: مدل‌هایی که از طریق API و زیرساخت ارائه‌دهندگان خارجی در دسترس هستند.
-- هوش مصنوعی محلی: مدل‌هایی که روی سخت‌افزار خود کاربر یا زیرساخت خصوصی اجرا می‌شوند.
-
-این دو باید بتوانند در سیاست‌های استفاده و مسیریابی مشترک قرار بگیرند.
-
-## ۳.۵. ماژولار بودن
-
-هر قابلیت باید تا حد امکان به‌صورت یک ماژول مستقل طراحی شود.
-
-اضافه‌کردن قابلیت جدید نباید مستلزم بازنویسی هسته اصلی یا تغییر گسترده سایر بخش‌ها باشد.
-
-## ۳.۶. استفاده مجدد به‌جای بازسازی
-
-این اصل یکی از مهم‌ترین تصمیم‌های معماری Ravi است.
-
-اگر یک ابزار موجود قابلیت موردنیاز را به‌خوبی پیاده‌سازی کرده است، Ravi باید از آن استفاده کند، نه اینکه نسخه مشابهی از آن بسازد.
-
-برای مثال:
-
-- اگر LiteLLM پنل مدیریت Providerها و مدل‌ها را دارد، Ravi نباید پنل مشابهی بسازد.
-- اگر یک موتور محلی رابط مدیریت و API مناسب دارد، باید از همان رابط و API استفاده شود.
-- اگر ابزار موجود مدیریت حافظه یا Vector Database را به‌خوبی انجام می‌دهد، Ravi باید آن را یکپارچه کند، نه اینکه بدون ضرورت نسخه دیگری بسازد.
-
-Ravi باید روی نقاط اتصال، هماهنگی و یکپارچگی تمرکز کند.
-
-این رویکرد هزینه توسعه و نگهداری را کاهش می‌دهد و مانع عقب‌ماندن قابلیت‌های Ravi از نسخه اصلی ابزارهای زیرین می‌شود.
-
-## ۳.۷. قابلیت استفاده مستقل
-
-Ravi نباید برای اجرا به DevOS وابسته باشد.
-
-هر فرد یا پروژه باید بتواند آن را با Docker Compose یا روش‌های استقرار مستندشده راه‌اندازی کند.
-
-## ۳.۸. امنیت و مالکیت داده
-
-اطلاعات محرمانه، کلیدهای API، تاریخچه درخواست‌ها و داده‌های کاربران باید تحت کنترل مدیر استقرار باشند.
-
-هیچ داده‌ای نباید بدون تنظیم و اجازه صریح به سرویس خارجی ارسال شود.
-
-# ۴. جایگاه Ravi در معماری کلان
-
-معماری مفهومی:
+The following is a conceptual architecture, not a required process layout:
 
 ```text
                  APPLICATIONS
@@ -145,7 +104,6 @@ Ravi نباید برای اجرا به DevOS وابسته باشد.
                        v
               +------------------+
               |       RAVI       |
-              |                  |
               | Integration      |
               | Configuration    |
               | Routing          |
@@ -158,293 +116,101 @@ Ravi نباید برای اجرا به DevOS وابسته باشد.
           |            |            |
           v            v            v
       CLOUD AI      LOCAL AI     AI SERVICES
-          |            |            |
       LiteLLM        Ollama       Agent Tools
       Gemini         vLLM          Memory
       Cloudflare     llama.cpp     Workflows
       OpenAI         Local APIs    Other Services
-          |            |            |
           +------------+------------+
                        |
                        v
               MODELS AND TOOLS
 ```
 
-این نمودار معماری مفهومی است، نه الزاماً ساختار پردازه‌های اجرایی.
+Ravi may consist of several independent services. Capabilities do not all need to live in one process or container.
 
-Ravi می‌تواند از چندین سرویس مستقل تشکیل شود و لازم نیست تمام قابلیت‌ها در یک پردازه یا یک کانتینر قرار گیرند.
+## 5. Proposed Ravi architecture
 
-# ۵. معماری پیشنهادی Ravi
+### 5.1. Ravi Core
 
-## ۵.۱. Ravi Core
+The core coordinates Ravi's components. Responsibilities include managing Ravi-level configuration, discovering connected services, tracking service status, coordinating infrastructure, checking version compatibility, exposing health information, managing common settings, and providing consistent consumer interfaces. Ravi Core should not reimplement the internals of underlying tools without a clear need.
 
-هسته مرکزی و مسئول هماهنگی اجزا.
+### 5.2. Integration Layer
 
-وظایف:
+The Integration Layer connects and coordinates tools. Each tool can have its own adapter or connector where needed. Responsibilities include connecting to APIs, managing endpoints, discovering capabilities, checking service health, coordinating settings and communication, converting formats when necessary, and keeping consumers independent from underlying implementations.
 
-- مدیریت پیکربندی‌های سطح Ravi
-- ثبت و شناسایی سرویس‌های متصل
-- مدیریت وضعیت سرویس‌ها
-- هماهنگی میان اجزای زیرساخت
-- بررسی سازگاری نسخه‌ها
-- ارائه اطلاعات سلامت سیستم
-- مدیریت تنظیمات عمومی
-- فراهم‌کردن رابط‌های یکپارچه برای مصرف‌کنندگان
+An adapter should provide a stable Ravi integration point without reimplementing the full feature set of the tool it connects.
 
-Ravi Core نباید جزئیات داخلی ابزارهای زیرین را بدون ضرورت بازنویسی کند.
+### 5.3. AI Gateway
 
-## ۵.۲. Integration Layer
+Ravi can use an existing gateway such as LiteLLM and expose its capabilities through Ravi's API. Infrastructure-level responsibilities include connecting to the gateway, exposing consumer endpoints, coordinating access and service settings, checking gateway health, and making routing policies available. Ravi should not rewrite LiteLLM merely to own a gateway implementation.
 
-یکی از مهم‌ترین اجزای Ravi.
+### 5.4. Provider management
 
-این لایه وظیفه اتصال ابزارهای مختلف و هماهنگ‌کردن آن‌ها را بر عهده دارد.
+Provider management should be handled by a dedicated underlying tool wherever possible. LiteLLM can provide much of this functionality in the initial release. Initial providers include Cloudflare Workers AI, Google Gemini, OpenAI, Anthropic, and other OpenAI-compatible services. Ravi coordinates the integrations; it does not need to recreate all provider-management screens and operations.
 
-برای هر ابزار، در صورت نیاز یک Adapter یا Connector مستقل تعریف می‌شود.
+### 5.5. Local AI integration
 
-وظایف:
+Local inference is a major Ravi goal. Engines to evaluate include Ollama, vLLM, llama.cpp, LocalAI, and other engines with connectable APIs. Ravi can discover local endpoints, connect to existing engines, discover available models when possible, check runtime status, coordinate with the gateway, and route between local and cloud services.
 
-- اتصال به API ابزارها
-- مدیریت Endpointها
-- تشخیص قابلیت‌های موجود
-- بررسی وضعیت سرویس‌ها
-- هماهنگی تنظیمات لازم
-- مدیریت ارتباط میان اجزا
-- تبدیل قالب‌های ارتباطی در صورت ضرورت
-- جلوگیری از وابستگی مستقیم مصرف‌کنندگان به ابزارهای زیرین
+The first release should not build another inference engine, GPU manager, or model downloader. Prefer the local engine's own management interface when it is suitable.
 
-Adapter نباید تمام قابلیت‌های ابزار اصلی را دوباره پیاده‌سازی کند.
+### 5.6. Model registry
 
-هدف آن فراهم‌کردن یک نقطه اتصال پایدار و قابل استفاده برای Ravi است.
+Ravi may maintain a lightweight registry of connected model metadata without replacing the model management of underlying tools. Possible metadata includes model ID, provider, inference engine, model type, known capabilities, connection status, and routing information. Read it from underlying APIs when possible to avoid maintaining duplicate configurations.
 
-## ۵.۳. AI Gateway
+### 5.7. Intelligent routing
 
-درگاه ارتباط با مدل‌های هوش مصنوعی.
+Ravi can use routing already available in its gateway and add higher-level policies when a real need exists. Potential criteria include expected quality, latency, cost, availability, capacity, local or cloud execution, privacy policy, and model capabilities.
 
-Ravi می‌تواند از یک Gateway موجود مانند LiteLLM استفاده کند و قابلیت‌های آن را از طریق API در اختیار مصرف‌کنندگان قرار دهد.
+Possible policies include `local-first`, `cloud-first`, `lowest-cost`, `lowest-latency`, `quality-first`, `balanced`, and `privacy-first`. If an underlying tool provides a suitable policy, Ravi should configure and use it instead of building a parallel routing engine.
 
-وظایف در سطح زیرساخت:
+### 5.8. AI services
 
-- اتصال به Gateway
-- فراهم‌کردن Endpoint برای مصرف‌کنندگان
-- هماهنگی دسترسی‌ها در صورت نیاز
-- تنظیم ارتباط میان سرویس‌ها
-- بررسی سلامت Gateway
-- مدیریت تنظیمات استقرار
-- فراهم‌کردن امکان استفاده از سیاست‌های مسیریابی
+Ravi may integrate embedding, reranking, speech recognition, text-to-speech, image understanding and generation, document processing, structured output, and vision services. Each service must have a clear responsibility: Ravi should define whether it only supplies a connector or also operates the service.
 
-Ravi نباید صرفاً برای داشتن یک Gateway اختصاصی، قابلیت‌های بالغ LiteLLM را بازنویسی کند.
+### 5.9. Agent integration
 
-## ۵.۴. Provider Management
+Ravi may eventually coordinate agents that use registered models, tools, and services. It should evaluate existing open-source agent frameworks before building a new parallel framework. Integrate or develop only after a concrete need is established.
 
-مدیریت ارائه‌دهندگان هوش مصنوعی باید تا حد ممکن توسط ابزار تخصصی زیرین انجام شود.
+### 5.10. Memory and context integration
 
-در نسخه اولیه، LiteLLM می‌تواند مسئولیت بخش بزرگی از این وظایف را بر عهده بگیرد.
+Use the same approach for conversation memory, vector databases, retrieval-augmented generation, context management, and long-term memory: evaluate suitable existing tools and integrate them where appropriate. Each consumer project needs an independent memory space, access policy, and data boundary. Memory sharing requires explicit permission and policy.
 
-ارائه‌دهندگان اولیه:
+## 6. Underlying tools and management interfaces
 
-- Cloudflare Workers AI
-- Google Gemini
-- OpenAI
-- Anthropic
-- سایر سرویس‌های سازگار با OpenAI API
+**Ravi should not rebuild the management interfaces of underlying tools.** LiteLLM and inference engines may already provide administration interfaces, management APIs, usage reports, and monitoring. Use the official interface directly whenever possible.
 
-Ravi مسئول اتصال و هماهنگی این ابزارهاست، نه ساخت مجدد تمام صفحات و عملیات مدیریتی آن‌ها.
+Ravi is responsible for documenting access, storing service connection settings, coordinating deployment, checking service availability, documenting tool interactions, and providing required integration. A small page that lists connected services and links to their official interfaces may be useful. A parallel management console is outside Ravi's current scope.
 
-## ۵.۵. Local AI Integration
+Develop a new management feature only when the underlying tool lacks it and a clear operational need exists.
 
-یکی از اهداف مهم آینده Ravi اتصال موتورهای استنتاج محلی است.
+**Use an existing capability by integrating it correctly; do not create a duplicate by default.**
 
-موتورهای قابل بررسی:
+## 7. Infrastructure and data management
 
-- Ollama
-- vLLM
-- llama.cpp
-- LocalAI
-- سایر موتورهای دارای API قابل اتصال
+Ravi needs stable, maintainable infrastructure.
 
-وظایف Ravi:
+### PostgreSQL
 
-- شناسایی Endpointهای محلی
-- اتصال به موتورهای موجود
-- تشخیص مدل‌های در دسترس، در صورت امکان
-- بررسی وضعیت اجرا
-- هماهنگی با Gateway
-- فراهم‌کردن امکان مسیریابی میان Local و Cloud
+Use PostgreSQL for Ravi-specific data only when needed. Possible data includes Ravi-level settings, deployment metadata, connected service information, Ravi-specific policies, and consumer project metadata if that feature is implemented. Do not copy data that an underlying tool already manages correctly.
 
-Ravi نباید در نسخه اول خودش موتور اجرای مدل، مدیریت GPU یا ابزار دانلود مدل را از نو بسازد.
+### Redis
 
-در صورت وجود رابط مدیریتی مناسب در موتور محلی، استفاده از همان رابط در اولویت است.
+Use Redis when needed for cache, temporary state, process coordination, or rate limits. Redis should not be an architectural requirement without a concrete use case.
 
-## ۵.۶. Model Registry
+### Object storage
 
-Ravi می‌تواند یک لایه اطلاعاتی سبک برای شناخت مدل‌های متصل داشته باشد.
+Consider object storage if Ravi needs to retain files, multimodal outputs, or large data.
 
-این لایه نباید بدون دلیل جایگزین Model Management ابزارهای زیرین شود.
+### Migrations and backups
 
-اطلاعات احتمالی:
+Every Ravi-owned schema change needs a migration. Define backup, restore, backup integrity checks, retention, versioned migrations, and disaster recovery documentation. Back up underlying tools with their own supported procedures.
 
-- شناسه مدل
-- ارائه‌دهنده
-- موتور اجرا
-- نوع مدل
-- قابلیت‌های شناخته‌شده
-- وضعیت اتصال
-- اطلاعات لازم برای Routing
+## 8. API and consumer contract
 
-در صورت امکان، اطلاعات از API ابزارهای زیرین دریافت می‌شوند تا از نگهداری چند نسخه متفاوت از یک پیکربندی جلوگیری شود.
+The API is Ravi's most important boundary of independence. Consumer applications should not need to know Ravi's internals or the implementation details of connected tools.
 
-## ۵.۷. Intelligent Routing
-
-مسیریابی هوشمند می‌تواند از قابلیت‌های موجود Gateway استفاده کند و در صورت نیاز، سیاست‌های سطح بالاتر را در Ravi پیاده‌سازی کند.
-
-معیارهای احتمالی:
-
-- کیفیت مورد انتظار
-- سرعت پاسخ
-- هزینه
-- دسترس‌پذیری
-- ظرفیت مدل
-- محلی یا ابری بودن
-- سیاست حریم خصوصی
-- قابلیت‌های مدل
-
-سیاست‌های پیشنهادی:
-
-- `local-first`
-- `cloud-first`
-- `lowest-cost`
-- `lowest-latency`
-- `quality-first`
-- `balanced`
-- `privacy-first`
-
-اصل مهم این است که اگر ابزار زیرین همین قابلیت را به‌شکل مناسب ارائه می‌دهد، Ravi باید آن را تنظیم و استفاده کند، نه اینکه موتور موازی دیگری بسازد.
-
-## ۵.۸. AI Services
-
-در آینده Ravi می‌تواند سرویس‌های متنوعی را یکپارچه کند:
-
-- Embedding
-- Reranking
-- Speech-to-Text
-- Text-to-Speech
-- Image Understanding
-- Image Generation
-- Document Processing
-- Structured Output
-- Vision
-
-این سرویس‌ها می‌توانند از ابزارهای تخصصی موجود استفاده کنند.
-
-برای هر سرویس باید مشخص شود که Ravi صرفاً Connector فراهم می‌کند یا واقعاً مسئول اجرای آن است.
-
-## ۵.۹. Agent Integration
-
-در بلندمدت Ravi می‌تواند امکان اتصال و هماهنگی Agentها را فراهم کند.
-
-Agentها می‌توانند از مدل‌ها، ابزارها و سرویس‌های ثبت‌شده استفاده کنند.
-
-اما Ravi نباید بدون بررسی ابزارهای موجود، یک Agent Framework جدید و موازی بسازد.
-
-ابتدا باید گزینه‌های متن‌باز موجود ارزیابی شوند و سپس بر اساس نیاز واقعی، یکپارچه‌سازی یا توسعه اختصاصی انجام شود.
-
-## ۵.۱۰. Memory and Context Integration
-
-حافظه هوش مصنوعی نیز باید با همین فلسفه طراحی شود.
-
-در صورت وجود ابزارهای مناسب برای:
-
-- Conversation Memory
-- Vector Database
-- Retrieval-Augmented Generation
-- Context Management
-- Long-term Memory
-
-Ravi باید ابتدا آن‌ها را بررسی و در صورت مناسب‌بودن یکپارچه کند.
-
-هر پروژه باید فضای حافظه، سیاست دسترسی و محدوده داده مستقل داشته باشد.
-
-اشتراک حافظه فقط با اجازه و سیاست صریح انجام شود.
-
-# ۶. مدیریت ابزارهای زیرین و رابط‌های مدیریتی
-
-**Ravi نباید پنل مدیریتی ابزارهای زیرین را بازسازی کند.**
-
-ابزارهایی مانند LiteLLM و موتورهای اجرای مدل ممکن است رابط مدیریتی، API مدیریتی، صفحه تنظیمات، گزارش مصرف و قابلیت‌های پایش مخصوص خود را داشته باشند.
-
-این رابط‌ها بخشی از محصول اصلی آن ابزارها هستند و باید تا حد امکان مستقیماً استفاده شوند.
-
-برای مثال:
-
-- مدیریت مدل‌ها و Providerهای LiteLLM از طریق رابط و امکانات خود LiteLLM.
-- مدیریت موتور محلی از طریق رابط مدیریتی همان موتور، اگر وجود داشته باشد.
-- مشاهده وضعیت و گزارش‌های هر ابزار از طریق امکانات رسمی همان ابزار.
-
-Ravi در این بخش فقط مسئول موارد زیر خواهد بود:
-
-1. فراهم‌کردن روش مستند برای دسترسی به رابط‌های مدیریتی موجود.
-2. نگهداری تنظیمات اتصال و آدرس سرویس‌ها.
-3. هماهنگی استقرار سرویس‌ها.
-4. بررسی سلامت و دسترس‌پذیری اجزا.
-5. ارائه مستندات استفاده و ارتباط میان ابزارها.
-6. فراهم‌کردن یکپارچگی لازم میان اجزا.
-
-در صورت نیاز می‌توان یک صفحه بسیار ساده برای معرفی سرویس‌های متصل و لینک‌دادن به رابط‌های مدیریتی آن‌ها ارائه کرد؛ اما ساخت یک پنل مدیریتی موازی در محدوده اهداف Ravi نیست.
-
-هر قابلیت مدیریتی جدید فقط زمانی باید توسعه یابد که ابزار زیرین آن را ارائه نمی‌کند و نیاز واقعی و مشخصی برای آن وجود دارد.
-
-**قاعده: قابلیت موجود را دوباره نساز؛ آن را به‌درستی یکپارچه کن.**
-
-# ۷. مدیریت زیرساخت و داده‌ها
-
-Ravi باید زیرساخت پایدار و قابل نگهداری داشته باشد.
-
-## PostgreSQL
-
-در صورت نیاز به ذخیره داده‌های اختصاصی Ravi، می‌توان از PostgreSQL استفاده کرد.
-
-موارد احتمالی:
-
-- تنظیمات سطح Ravi
-- اطلاعات استقرار
-- اطلاعات اتصال سرویس‌ها
-- سیاست‌های اختصاصی Ravi
-- اطلاعات پروژه‌های مصرف‌کننده، در صورت پیاده‌سازی این قابلیت
-
-Ravi نباید اطلاعاتی را که ابزار زیرین خودش به‌درستی نگهداری می‌کند، بی‌دلیل در پایگاه داده دیگری کپی کند.
-
-## Redis
-
-در صورت نیاز واقعی به مواردی مانند Cache، وضعیت موقت، هماهنگی پردازه‌ها یا Rate Limiting می‌توان از Redis استفاده کرد.
-
-استفاده از Redis نباید صرفاً یک الزام معماری باشد.
-
-## Object Storage
-
-در صورت نیاز به نگهداری فایل‌ها، خروجی‌های چندرسانه‌ای یا داده‌های بزرگ، می‌توان در آینده از Object Storage استفاده کرد.
-
-## Migration و Backup
-
-تمام تغییرات ساختار داده اختصاصی Ravi باید Migration داشته باشند.
-
-همچنین باید موارد زیر طراحی شوند:
-
-- پشتیبان‌گیری
-- بازیابی اطلاعات
-- بررسی صحت Backup
-- سیاست نگهداری
-- مهاجرت نسخه‌ای
-- مستندسازی بازیابی پس از خرابی
-
-داده‌های ابزارهای زیرین باید مطابق روش رسمی Backup و Restore همان ابزارها نگهداری شوند.
-
-# ۸. API و قرارداد ارتباط با مصرف‌کنندگان
-
-API مهم‌ترین مرز استقلال Ravi است.
-
-برنامه‌های مصرف‌کننده نباید از جزئیات داخلی Ravi یا ابزارهای زیرین اطلاع داشته باشند.
-
-برای مثال، یک برنامه می‌تواند از API یکپارچه استفاده کند:
+Example request:
 
 ```http
 POST /v1/chat/completions
@@ -452,686 +218,223 @@ Authorization: Bearer <PROJECT_API_KEY>
 Content-Type: application/json
 ```
 
-نمونه درخواست:
-
 ```json
 {
   "model": "balanced",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Hello Ravi"
-    }
-  ]
+  "messages": [{"role": "user", "content": "Hello Ravi"}]
 }
 ```
 
-Ravi یا Gateway متصل‌شده بر اساس سیاست تعریف‌شده مقصد را انتخاب می‌کند.
+Ravi or its connected gateway chooses a destination according to the configured policy. Proposed initial routes are `/v1/models`, `/v1/chat/completions`, `/v1/embeddings`, `/v1/responses`, `/health`, and `/ready`. Future routes such as `/v1/agents`, `/v1/memory`, `/v1/tools`, `/v1/tasks`, `/v1/audio`, and `/v1/images` should be advertised only after they are implemented.
 
-مسیرهای اولیه پیشنهادی:
+### API keys and projects
 
-```text
-/v1/models
-/v1/chat/completions
-/v1/embeddings
-/v1/responses
-/health
-/ready
-```
+If Ravi needs consumer management, it may issue an independent key for each project. Possible restrictions include allowed models and services, request quotas, usage limits, rate limits, privacy policy, and expiration. Reuse the gateway's implementation when it provides these capabilities appropriately.
 
-مسیرهای آینده، در صورت پیاده‌سازی واقعی:
+## 9. Security
 
-```text
-/v1/agents
-/v1/memory
-/v1/tools
-/v1/tasks
-/v1/audio
-/v1/images
-```
+Security must be part of the architecture from the start. Requirements include:
 
-## API Key و پروژه‌ها
+1. Keep provider keys in secure deployment storage and out of images.
+2. Never write secrets to logs.
+3. Keep master keys out of consumer code.
+4. Support key revocation and rotation.
+5. Restrict access by project and role.
+6. Validate inputs.
+7. Protect against abuse and excessive requests.
+8. Manage timeouts and concurrent requests.
+9. Do not expose administration interfaces to the public internet unintentionally.
+10. Record security events.
+11. Keep consumer data isolated.
 
-در صورت نیاز به مدیریت مصرف‌کنندگان در سطح Ravi، امکان تعریف کلید مستقل برای هر پروژه فراهم می‌شود.
+Use security capabilities provided by underlying tools while securing Ravi's own communication boundaries. Do not expose local management interfaces without authentication or through unsafe configuration.
 
-محدودیت‌های احتمالی:
+## 10. Independent deployment and Docker
 
-- دسترسی به مدل‌های مجاز
-- دسترسی به سرویس‌های مجاز
-- سهمیه درخواست
-- محدودیت مصرف
-- محدودیت نرخ درخواست
-- سیاست حریم خصوصی
-- اعتبار زمانی
+Design Ravi to be deployed independently. A conceptual deployment may include Ravi Core, a gateway such as LiteLLM, optional local engines, and optional infrastructure. This does not require one container per component. Run each tool according to its supported deployment method.
 
-اگر Gateway زیرین این قابلیت‌ها را به‌صورت مناسب ارائه می‌دهد، باید از همان قابلیت‌ها استفاده شود.
+### Shared central deployment
 
-# ۹. امنیت
+A central Ravi instance can serve several projects. This offers centralized management, shared providers and models, less duplicated infrastructure, and simpler maintenance.
 
-امنیت باید از ابتدای توسعه در معماری لحاظ شود.
+### Independent deployment
 
-الزامات:
+Each project can deploy its own Ravi, services, and data. Each deployment needs independent configuration, keys, data, versioning, and lifecycle.
 
-1. نگهداری کلیدهای Provider فقط در محل امن و خارج از Image.
-2. عدم ثبت Secretها در لاگ.
-3. عدم قرار دادن کلیدهای اصلی در کد مصرف‌کنندگان.
-4. امکان لغو و چرخش کلیدها.
-5. محدودیت دسترسی براساس پروژه و نقش.
-6. اعتبارسنجی ورودی‌ها.
-7. محافظت در برابر سوءاستفاده و درخواست‌های بیش‌ازحد.
-8. مدیریت Timeout و درخواست‌های هم‌زمان.
-9. عدم انتشار ناخواسته رابط‌های مدیریتی روی اینترنت.
-10. ثبت رویدادهای امنیتی.
-11. جداسازی داده‌های مصرف‌کنندگان.
+### Separate images from configuration
 
-Ravi باید از امکانات امنیتی ابزارهای زیرین استفاده کند و در عین حال امنیت مرز ارتباطی خودش را تضمین کند.
+Docker images contain software and versioned dependencies only. Keep `.env`, secrets, API keys, master keys, deployment-specific settings, database connection details, and persistent service data outside images. Never commit secrets or private data to Git.
 
-رابط‌های مدیریتی محلی ابزارها نباید بدون احراز هویت یا از طریق تنظیمات ناامن در معرض اینترنت قرار بگیرند.
+## 11. GitHub repository structure
 
-# ۱۰. استقرار مستقل و Docker
-
-Ravi باید از ابتدا با فرض استقرار مستقل طراحی شود.
-
-ساختار مفهومی:
-
-```text
-RAVI DEPLOYMENT
-|
-+-- ravi-core
-|
-+-- ravi-gateway
-|    |
-|    +-- LiteLLM
-|
-+-- local-ai-engines (optional)
-|
-+-- optional infrastructure
-```
-
-این ساختار الزاماً به معنای ایجاد یک کانتینر اختصاصی برای هر جزء نیست.
-
-هر ابزار باید با توجه به روش رسمی استقرار خودش اجرا شود.
-
-## حالت اول: Shared Central Deployment
-
-یک نمونه Ravi به‌صورت مرکزی اجرا می‌شود و چندین پروژه از آن استفاده می‌کنند.
-
-```text
-                 +----------------+
-                 |      RAVI      |
-                 +----------------+
-                    /     |     \
-                   /      |      \
-                DevOS   Web App  Other App
-```
-
-مزایا:
-
-- مدیریت مرکزی
-- استفاده مشترک از Providerها
-- کاهش تکرار زیرساخت
-- استفاده مشترک از مدل‌ها
-- نگهداری ساده‌تر
-
-## حالت دوم: Independent Deployment
-
-هر پروژه می‌تواند یک نمونه مستقل Ravi را کنار زیرساخت خود اجرا کند.
-
-```text
-+-------------------+    +-------------------+
-| Project A         |    | Project B         |
-|                   |    |                   |
-| Ravi A            |    | Ravi B            |
-| Services A        |    | Services B        |
-| Data A            |    | Data B            |
-+-------------------+    +-------------------+
-```
-
-هر استقرار باید بتواند تنظیمات، کلیدها، داده‌ها، نسخه و چرخه عمر مستقل داشته باشد.
-
-## جداسازی Image و Configuration
-
-Docker Image فقط باید شامل نرم‌افزار و وابستگی‌های نسخه‌بندی‌شده باشد.
-
-موارد زیر باید خارج از Image باشند:
-
-- `.env`
-- Secretها
-- API Keyها
-- Master Key
-- تنظیمات اختصاصی استقرار
-- اطلاعات اتصال به دیتابیس
-- داده‌های پایدار سرویس‌ها
-
-هیچ Secret یا داده خصوصی نباید در Image یا Git قرار بگیرد.
-
-# ۱۱. ساختار مخزن GitHub
-
-ساختار پیشنهادی:
+The repository can grow toward this structure as modules acquire clear responsibilities, contracts, and tests:
 
 ```text
 ravi/
-|
-+-- README.md
-+-- LICENSE
-+-- CONTRIBUTING.md
-+-- SECURITY.md
-+-- CHANGELOG.md
-+-- ROADMAP.md
-+-- .gitignore
-+-- .dockerignore
-|
-+-- docs/
-|   +-- architecture/
-|   +-- api/
-|   +-- deployment/
-|   +-- security/
-|   +-- integrations/
-|   +-- development/
-|
-+-- deploy/
-|   +-- docker/
-|   +-- compose/
-|   +-- examples/
-|
-+-- config/
-|   +-- examples/
-|   +-- schemas/
-|
-+-- src/
-|   +-- core/
-|   +-- integrations/
-|   +-- providers/
-|   +-- local_ai/
-|   +-- registry/
-|   +-- routing/
-|   +-- policies/
-|   +-- auth/
-|   +-- observability/
-|
-+-- tests/
-|   +-- unit/
-|   +-- integration/
-|   +-- contract/
-|   +-- e2e/
-|
-+-- scripts/
-|
-+-- .github/
-    +-- workflows/
+├── README.md
+├── LICENSE
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── CHANGELOG.md
+├── ROADMAP.md
+├── docs/ (architecture, API, deployment, security, integrations, development)
+├── deploy/ (docker, compose, examples)
+├── config/ (examples, schemas)
+├── src/ (core, integrations, providers, local_ai, registry, routing, policies,
+│         auth, observability)
+├── tests/ (unit, integration, contract, end-to-end)
+├── scripts/
+└── .github/workflows/
 ```
 
-این ساختار نباید الزام ایجاد تمام دایرکتوری‌ها در نسخه اول باشد.
+Do not create every directory in the first release without a real module behind it. Choose a language and framework after technical evaluation. Python is a possible fit for coordination and integration, but the chosen technology should not force Ravi to rewrite existing tools.
 
-هر ماژول زمانی اضافه شود که مسئولیت، قرارداد و تست مشخص داشته باشد.
+## 12. Versioning and releases
 
-انتخاب زبان برنامه‌نویسی و چارچوب اصلی باید پس از ارزیابی فنی انجام شود.
+Ravi needs an independent release cycle. Recommended practices include Semantic Versioning, GitHub Releases, Docker image releases, GitHub Container Registry, a changelog, migration notes, and automated pre-release checks.
 
-پیشنهاد اولیه استفاده از Python برای بخش‌های هماهنگی و Integration است؛ اما نباید فناوری انتخابی باعث بازنویسی ابزارهای موجود شود.
+Example versions are `v0.1.0`, `v0.2.0`, `v0.5.0`, and `v1.0.0`. Images should be reproducible and identifiable. Do not use a floating tag such as `latest` as the only deployment option. Production deployments should pin a version and have a rollback path.
 
-# ۱۲. مدیریت نسخه و انتشار
+## 13. Testing, monitoring, and reliability
 
-Ravi باید چرخه انتشار مستقل داشته باشد.
+Design Ravi to be testable from the beginning. Test categories include unit, integration, API contract, adapter, routing, authentication, Docker build, and end-to-end tests. Underlying integrations should be testable with mocks and, when deployment administrators provide credentials, against real services.
 
-پیشنهاد:
+Monitoring should provide health and readiness checks, structured logging, request IDs, metrics, error tracking, and latency monitoring. Prefer official monitoring in underlying tools over an unnecessary parallel system. Respect privacy when logging; storing complete prompts and responses should not be mandatory by default.
 
-- Semantic Versioning
-- GitHub Releases
-- انتشار Docker Image
-- انتشار در GitHub Container Registry
-- Changelog
-- Migration Notes
-- تست خودکار قبل از Release
+## 14. Development roadmap
 
-نمونه نسخه‌ها:
+Develop Ravi in stages.
 
-```text
-v0.1.0
-v0.2.0
-v0.5.0
-v1.0.0
-```
+### Stage 0: Foundation
 
-نسخه‌های Image باید قابل بازتولید و قابل تشخیص باشند.
+Create an independent repository, select an architecture, set coding standards and API contracts, define Docker images and Compose deployment, separate configuration and secrets, establish initial CI, document the architecture, and set versioning policy. **Exit criterion:** Ravi can build and run independently.
 
-استفاده از Tagهای شناور مانند `latest` نباید تنها روش استقرار باشد.
+### Stage 1: Gateway MVP
 
-هر استقرار عملیاتی باید بتواند نسخه مشخصی را Pin کند و در صورت نیاز به نسخه قبلی بازگردد.
+Integrate LiteLLM, Cloudflare Workers AI, and Gemini; use LiteLLM's management interface; manage deployment settings; provide an OpenAI-compatible API, health checks, logging, and real API tests. **Exit criterion:** An external application receives valid responses without knowing the provider details.
 
-# ۱۳. تست، پایش و قابلیت اطمینان
+### Stage 2: Deployment and multiple projects
 
-Ravi باید از ابتدا تست‌پذیر طراحی شود.
+Evaluate project management in underlying tools, manage keys and usage limits at the appropriate layer, define model access policy and independent settings, and document shared and independent deployments. **Exit criterion:** Multiple projects can safely use shared Ravi without interfering with one another.
 
-انواع تست:
+### Stage 3: Local AI integration
 
-- Unit Tests
-- Integration Tests
-- API Contract Tests
-- Integration Adapter Tests
-- Routing Tests
-- Authentication Tests
-- Docker Build Tests
-- End-to-End Tests
+Add adapters for Ollama and vLLM, discover local engines and endpoints, discover model capabilities, monitor health, and support local-first routing. **Exit criterion:** A consumer can use local and cloud models through Ravi.
 
-تست ابزارهای زیرین باید بتواند در دو حالت اجرا شود:
+### Stage 4: Intelligent routing
 
-1. Mock یا شبیه‌سازی‌شده، بدون مصرف API واقعی.
-2. آزمایش واقعی، با اعتبارنامه‌ای که مدیر استقرار فراهم می‌کند.
+Evaluate gateway routing, define any additional policies, model priorities and fallback, cost, speed and privacy policies, record selection reasons, and test provider outages. **Exit criterion:** Ravi uses underlying routing and adds higher-level logic only where needed.
 
-در بخش پایش:
+### Stage 5: Integration expansion
 
-- Health Check
-- Readiness Check
-- Structured Logging
-- Request ID
-- Metrics
-- Error Tracking
-- Latency Monitoring
+Evaluate open-source tools and connect embedding, reranking, audio, vision, and document processing services. Assess agent frameworks, memory, and RAG tools, and document each integration. **Exit criterion:** New services can be added without rewriting existing capabilities.
 
-باید وجود داشته باشند.
+### Stage 6: Agent and memory integration
 
-Ravi باید در صورت امکان از قابلیت‌های پایش رسمی ابزارهای زیرین استفاده کند و از ایجاد سیستم موازی غیرضروری پرهیز کند.
+Select an agent framework, connect a tool registry and workflow engine where needed, connect memory and vector database services, and define context management, permissions, and audit trails. **Exit criterion:** Agents use connected models and tools under explicit access policies.
 
-ثبت درخواست‌ها باید با رعایت حریم خصوصی انجام شود. ذخیره متن کامل Prompt و پاسخ‌ها نباید پیش‌فرض اجباری باشد.
+## 15. Project success criteria
 
-# ۱۴. نقشه راه توسعه
+Measure success by more than the number of providers or models. Ravi should support independent deployment; shared use by several projects; independent deployment per project; cloud providers and local engines; a stable documented API; consumer independence from internals; isolated secrets and deployment data; upgrades and rollback; automated critical-path tests; modular growth; official management interfaces; minimal duplication; no mandatory commercial Ravi service; and adequate developer documentation.
 
-Ravi باید مرحله‌ای توسعه یابد.
+## 16. Design outcomes to avoid
 
-## مرحله صفر: Foundation
+- Do not make Ravi depend on DevOS.
+- Do not make Ravi merely a new name for LiteLLM.
+- Do not rebuild mature capabilities or create a parallel LiteLLM console.
+- Do not create an incompatible parallel model-management system.
+- Do not require a single provider.
+- Do not put secrets in Docker images.
+- Do not share consumer data without a defined policy.
+- Do not let future features require a core rewrite.
+- Do not delete existing data during installation or upgrade.
+- Do not advertise a feature as ready before it is implemented.
+- Do not leave version-dependent patches without tests and documentation.
+- Do not rewrite an existing tool merely because of personal preference.
 
-هدف: ایجاد پایه مستقل و قابل نگهداری.
+## 17. Ravi and DevOS
 
-کارها:
+DevOS is an important early consumer, but the relationship must remain standard and independent. DevOS can use Ravi's model API, expose local models to applications through Ravi, connect agents to Ravi tools, and use Ravi routing and future services.
 
-- ایجاد Repository مستقل
-- انتخاب ساختار معماری
-- تعریف استانداردهای کدنویسی
-- تعریف قراردادهای API
-- تعریف Docker Image
-- تعریف Docker Compose مستقل
-- جداسازی Configuration و Secretها
-- ایجاد CI اولیه
-- مستندسازی معماری
-- تعیین سیاست نسخه‌بندی
+Ravi must not depend on DevOS libraries, internal files, or directory layout. Ravi should still run if DevOS is removed. DevOS should not need to copy or rebuild Ravi infrastructure after an update. Another project should need only Ravi's API and deployment documentation.
 
-معیار پایان: Ravi بتواند به‌صورت مستقل Build و اجرا شود.
+## 18. Ownership and contributor community
 
-## مرحله یک: Gateway MVP
+Ravi is a public open-source project. The repository should include a license, README, contribution guide, code of conduct, security policy, changelog, and roadmap. Follow the MIT License in every release. Independent contributors should be able to participate, and documentation should let people other than the original creator install, run, extend, and maintain Ravi. The project should not depend on undocumented knowledge held by one person.
 
-هدف: ارائه یک درگاه یکپارچه و پایدار برای مدل‌های هوش مصنوعی.
+## 19. Product definition
 
-کارها:
+**Ravi is independent, modular, open-source infrastructure for connecting, coordinating, routing, and using AI technologies. It makes providers, cloud models, local engines, and intelligent services available to applications through an integrated architecture.**
 
-- ادغام LiteLLM
-- اتصال Cloudflare Workers AI
-- اتصال Gemini
-- استفاده از امکانات مدیریتی LiteLLM
-- مدیریت تنظیمات استقرار
-- API سازگار با OpenAI
-- Health Check
-- Logging
-- تست‌های واقعی API
+Ravi is built for everyone. DevOS is one of its first consumers.
 
-معیار پایان: یک برنامه خارجی بتواند بدون اطلاع از جزئیات Provider به Ravi متصل شود و پاسخ معتبر دریافت کند.
+## 20. Proposed decisions
 
-## مرحله دو: Deployment and Multi-Project
-
-هدف: استفاده هم‌زمان چند پروژه از Ravi.
-
-کارها:
-
-- بررسی قابلیت‌های مدیریت پروژه در ابزارهای زیرین
-- مدیریت API Key در سطح مناسب
-- محدودیت مصرف در صورت نیاز
-- سیاست دسترسی به مدل‌ها
-- مدیریت تنظیمات مستقل
-- پشتیبانی Shared Deployment
-- مستندات Independent Deployment
-
-معیار پایان: چند پروژه بتوانند از یک Ravi مشترک استفاده کنند، بدون آنکه دسترسی یا تنظیمات یکدیگر را مختل کنند.
-
-## مرحله سه: Local AI Integration
-
-هدف: اتصال هوش مصنوعی محلی.
-
-کارها:
-
-- Ollama Adapter
-- vLLM Adapter
-- شناسایی موتورهای محلی
-- اتصال Endpointها
-- Model Capability Discovery
-- Health Monitoring
-- Local-first Routing
-
-معیار پایان: یک مصرف‌کننده بتواند از طریق زیرساخت Ravi از مدل محلی و ابری استفاده کند.
-
-## مرحله چهار: Intelligent Routing
-
-هدف: هماهنگی و انتخاب هوشمند مقصد.
-
-کارها:
-
-- بررسی قابلیت‌های مسیریابی Gateway
-- تعریف Routing Policies در صورت نیاز
-- اولویت‌بندی مدل‌ها
-- Fallback
-- سیاست هزینه
-- سیاست سرعت
-- سیاست حریم خصوصی
-- ثبت دلایل انتخاب مدل
-- تست رفتار در زمان قطعی Provider
-
-معیار پایان: Ravi بتواند از قابلیت‌های مسیریابی ابزارهای زیرین استفاده کند و در مواردی که نیاز به منطق سطح بالاتر وجود دارد، آن را به‌صورت مستقل فراهم کند.
-
-## مرحله پنج: Integration Expansion
-
-هدف: گسترش مجموعه ابزارهای متصل به Ravi.
-
-کارها:
-
-- ارزیابی ابزارهای متن‌باز موجود
-- اتصال سرویس‌های Embedding
-- اتصال Reranking
-- اتصال سرویس‌های صوتی
-- اتصال سرویس‌های Vision
-- اتصال Document Processing
-- بررسی Agent Frameworkها
-- بررسی ابزارهای Memory و RAG
-- مستندسازی روش اتصال هر ابزار
-
-معیار پایان: سرویس‌های جدید بدون بازنویسی قابلیت‌های موجود به زیرساخت Ravi اضافه شوند.
-
-## مرحله شش: Agent and Memory Integration
-
-هدف: فراهم‌کردن امکان استفاده هماهنگ از Agentها و سرویس‌های حافظه.
-
-کارها:
-
-- انتخاب و اتصال Agent Framework مناسب
-- اتصال Tool Registry
-- اتصال Workflow Engine در صورت نیاز
-- اتصال Memory Services
-- اتصال Vector Database
-- Context Management
-- Permission Model
-- Audit Trail
-
-معیار پایان: Agentها بتوانند با سیاست‌های دسترسی مشخص از مدل‌ها و ابزارهای متصل استفاده کنند.
-
-# ۱۵. معیارهای موفقیت پروژه
-
-موفقیت Ravi نباید فقط با تعداد Providerها یا مدل‌های پشتیبانی‌شده سنجیده شود.
-
-معیارهای اصلی:
-
-1. استقرار مستقل بدون نیاز به DevOS.
-2. استفاده هم‌زمان چند پروژه از یک نمونه Ravi.
-3. امکان استقرار مستقل برای هر پروژه.
-4. پشتیبانی از Providerهای ابری و موتورهای محلی.
-5. API پایدار و مستند.
-6. عدم وابستگی مصرف‌کنندگان به پیاده‌سازی داخلی.
-7. جداسازی Secretها و داده‌های استقرار.
-8. امکان ارتقا و Rollback.
-9. تست خودکار برای مسیرهای حیاتی.
-10. قابلیت افزودن ابزار و ماژول جدید بدون تغییر اساسی هسته.
-11. استفاده از رابط‌ها و قابلیت‌های مدیریتی رسمی ابزارهای زیرین.
-12. پرهیز از بازنویسی غیرضروری قابلیت‌های موجود.
-13. امکان استفاده از کل سیستم بدون سرویس تجاری اجباری Ravi.
-14. مستندات کافی برای توسعه‌دهندگان مستقل.
-
-# ۱۶. مواردی که نباید در طراحی اتفاق بیفتند
-
-برای جلوگیری از انحراف پروژه، این محدودیت‌ها باید جدی گرفته شوند:
-
-- Ravi نباید به DevOS وابسته شود.
-- Ravi نباید صرفاً یک نام جدید برای LiteLLM باشد.
-- Ravi نباید قابلیت‌های بالغ ابزارهای زیرین را بدون ضرورت بازسازی کند.
-- نباید پنل مدیریتی موازی برای LiteLLM ساخته شود.
-- نباید سیستم مدیریت مدل موازی و ناسازگار با Gateway ایجاد شود.
-- هیچ Provider نباید تنها گزینه ممکن باشد.
-- اطلاعات محرمانه نباید داخل Docker Image قرار گیرند.
-- داده‌های مصرف‌کنندگان نباید بدون سیاست مشخص مشترک شوند.
-- افزودن قابلیت آینده نباید باعث بازنویسی هسته شود.
-- نصب یا ارتقا نباید داده‌های موجود را حذف کند.
-- هیچ قابلیت نمایشی نباید پیش از پیاده‌سازی واقعی به‌عنوان قابلیت آماده معرفی شود.
-- هیچ Patch وابسته به نسخه نباید بدون تست و مستندات باقی بماند.
-- برای جایگزینی یک ابزار موجود نباید صرفاً به دلیل ترجیح شخصی، قابلیت‌های آن از نو نوشته شوند.
-
-# ۱۷. رابطه Ravi با DevOS
-
-DevOS نخستین مصرف‌کننده مهم Ravi خواهد بود.
-
-اما رابطه این دو باید به‌صورت یک ارتباط استاندارد و مستقل باقی بماند.
-
-DevOS می‌تواند:
-
-- از API مدل‌ها استفاده کند.
-- مدل‌های محلی را از طریق Ravi در اختیار برنامه‌ها قرار دهد.
-- Agentهای خود را به ابزارهای متصل به Ravi متصل کند.
-- از سیاست‌های مسیریابی استفاده کند.
-- از سرویس‌های آینده Ravi بهره ببرد.
-
-در مقابل، Ravi نباید برای کارکرد خود به کتابخانه‌ها، فایل‌های داخلی یا ساختار پوشه‌ای DevOS وابسته باشد.
-
-اگر DevOS حذف شود، Ravi همچنان باید کار کند.
-
-اگر Ravi به‌روزرسانی شود، DevOS نباید مجبور به کپی‌کردن یا بازسازی زیرساخت آن شود.
-
-اگر پروژه دیگری بخواهد از Ravi استفاده کند، باید فقط به مستندات API و روش استقرار نیاز داشته باشد.
-
-# ۱۸. ساختار مالکیت و جامعه توسعه‌دهندگان
-
-Ravi یک پروژه متن‌باز عمومی است.
-
-موارد پیشنهادی مخزن:
-
-- LICENSE
-- README
-- CONTRIBUTING
-- CODE_OF_CONDUCT
-- SECURITY
-- CHANGELOG
-- ROADMAP
-
-مجوز MIT باید در تمام انتشارهای پروژه رعایت شود.
-
-مشارکت توسعه‌دهندگان مستقل باید امکان‌پذیر باشد.
-
-مستندات باید به‌اندازه‌ای کامل باشند که فردی غیر از سازنده اولیه بتواند Ravi را نصب، اجرا، توسعه و نگهداری کند.
-
-پروژه نباید به دانش ضمنی یک نفر وابسته بماند.
-
-# ۱۹. تعریف نهایی محصول
-
-**Ravi یک زیرساخت متن‌باز، مستقل و ماژولار برای اتصال، هماهنگی، مسیریابی و استفاده از فناوری‌های مختلف هوش مصنوعی است که ابزارها، مدل‌های ابری، موتورهای محلی و سرویس‌های هوشمند را از طریق یک معماری یکپارچه در اختیار برنامه‌ها قرار می‌دهد.**
-
-Ravi برای DevOS ساخته نمی‌شود؛ Ravi برای همه ساخته می‌شود.
-
-DevOS فقط یکی از نخستین پروژه‌هایی است که از آن استفاده خواهد کرد.
-
-# ۲۰. تصمیم‌های پیشنهادی نهایی
-
-| موضوع | تصمیم پیشنهادی |
+| Topic | Proposed direction |
 |---|---|
-| نام پروژه | Ravi |
-| نوع پروژه | Open Source AI Infrastructure |
-| مجوز | MIT |
-| مخزن | مستقل و عمومی |
-| Docker Image | مستقل |
-| API | مستقل و مستند |
-| Gateway اولیه | LiteLLM |
-| Provider اولیه | Cloudflare Workers AI و Gemini |
-| رابط مدیریت Gateway | رابط رسمی LiteLLM |
-| دیتابیس | فقط در صورت نیاز Ravi |
-| Cache | Redis در صورت نیاز |
-| استقرار | Docker Compose |
-| حالت اجرا | Shared و Independent |
-| مدل‌های محلی | Ollama و vLLM در مراحل بعد |
-| مسیریابی هوشمند | استفاده از قابلیت‌های موجود و توسعه تکمیلی در صورت نیاز |
-| Agent و Memory | اتصال ابزارهای موجود در مراحل آینده |
-| پنل مدیریتی اختصاصی | خارج از محدوده فعلی |
-| انتشار | GitHub Releases و GHCR |
+| Project | Ravi |
+| Type | Open Source AI Infrastructure |
+| License | MIT |
+| Repository and image | Independent and public |
+| API | Independent and documented |
+| Initial gateway | LiteLLM |
+| Initial providers | Cloudflare Workers AI and Gemini |
+| Gateway administration | Official LiteLLM interface |
+| Database | Only when Ravi needs one |
+| Cache | Redis when needed |
+| Deployment | Docker Compose |
+| Deployment modes | Shared and independent |
+| Local models | Ollama and vLLM in later stages |
+| Routing | Reuse existing capabilities and extend only when needed |
+| Agents and memory | Integrate existing tools in later stages |
+| Custom management console | Outside current scope |
+| Releases | GitHub Releases and GHCR |
 
-# ۲۱. اولین خروجی مورد انتظار از تیم توسعه
+## 21. First expected development deliverable
 
-پس از تصویب این پروپوزال، اولین مأموریت تیم توسعه باید ایجاد یک نسخه اولیه واقعی و قابل اجرا از Ravi باشد؛ نه پیاده‌سازی یک‌باره تمام قابلیت‌های چشم‌انداز.
+The first task is a real, runnable Ravi baseline, not every planned capability at once. It should include an independent repository, buildable image, independent Compose configuration, external configuration, secret management, correct persistent volumes, a LiteLLM gateway, Cloudflare and Gemini integrations, LiteLLM's official management interface, health and readiness checks, automated tests and real API tests, installation and consumer documentation, GitHub Actions for test/build, and an initial release through GitHub Releases and GHCR.
 
-اولین نسخه باید شامل موارد زیر باشد:
+Do not destroy, move, or deprive any existing project of its data while developing this baseline. If current infrastructure is migrated, plan the work, preserve all data, and maintain a rollback path.
 
-1. مخزن مستقل Ravi.
-2. Docker Image قابل Build.
-3. Docker Compose مستقل.
-4. Configuration خارجی.
-5. Secret Management.
-6. مدیریت صحیح Volumeها و داده‌های پایدار.
-7. Gateway مبتنی بر LiteLLM.
-8. اتصال Cloudflare Workers AI.
-9. اتصال Gemini.
-10. استفاده از رابط مدیریتی رسمی LiteLLM.
-11. Health و Readiness Check.
-12. تست‌های خودکار و تست واقعی API.
-13. مستندات نصب و راه‌اندازی.
-14. مستندات اتصال یک پروژه خارجی.
-15. GitHub Actions برای تست و Build.
-16. انتشار نسخه اولیه در GitHub Releases و GHCR.
+## 22. Closing statement
 
-در این مرحله هیچ پروژه موجودی نباید تخریب، جابه‌جا یا از داده‌های فعلی محروم شود.
+Ravi should be built with minimal reinvention and maximum reuse of mature tools. Do not spend months rebuilding a console that LiteLLM already provides or reimplementing the management features of a local engine. Let each tool own its specialized responsibility and make their interaction simple, standard, and reliable.
 
-اگر قرار است زیرساخت فعلی به Ravi منتقل شود، مهاجرت باید برنامه‌ریزی‌شده، قابل بازگشت و با حفظ کامل داده‌ها انجام شود.
+Use an existing suitable tool. Build an integration layer when tools cannot communicate. Develop a capability only when an important need is not already met. That is the difference between an independent product and a collection of incomplete copies.
 
-# ۲۲. سخن پایانی
-
-من Ravi را پروژه‌ای می‌بینم که باید با کمترین بازسازی و بیشترین استفاده از ابزارهای بالغ موجود ساخته شود.
-
-نمی‌خواهم چند ماه وقت صرف ساخت پنلی کنیم که LiteLLM از قبل بهتر از ما ساخته است.
-
-نمی‌خواهم برای مدیریت یک موتور محلی، قابلیت‌های همان موتور را دوباره بنویسیم.
-
-نمی‌خواهم Ravi به مجموعه‌ای از نسخه‌های تکراری و ناقص از پروژه‌های متن‌باز دیگر تبدیل شود.
-
-می‌خواهم هر ابزار، مسئولیت تخصصی خودش را حفظ کند و Ravi ارتباط میان آن‌ها را ساده، استاندارد و قابل اعتماد کند.
-
-اگر ابزار مناسبی وجود دارد، از آن استفاده می‌کنیم.
-
-اگر ابزارها نمی‌توانند با یکدیگر ارتباط برقرار کنند، لایه اتصال را می‌سازیم.
-
-اگر قابلیت مهمی واقعاً وجود ندارد، آن را توسعه می‌دهیم.
-
-این تفاوت میان ساخت یک محصول مستقل و بازسازی چندین محصول موجود است.
-
-**Ravi قرار نیست همه‌چیز را خودش انجام دهد؛ قرار است همه‌چیز را به‌درستی کنار هم قرار دهد.**
+**Ravi does not have to do everything itself; it has to connect everything correctly.**
 
 *Ravi — Intelligence, Everywhere.*
 
 ---
 
-# ۲۳. وضعیت فعلی پروژه و دستاوردهای پیاده‌سازی‌شده
+## 23. Historical implementation baseline
 
-این بخش وضعیت واقعی زیرساختی را ثبت می‌کند که پیش از ایجاد Repository مستقل Ravi توسعه یافته است.
+This section records the deployment state that was documented before Ravi's independent repository was assembled. It is retained as migration context, not as a current deployment claim. Preserve useful work and data, but re-check all details before relying on them.
 
-این اطلاعات باید به‌عنوان نقطه شروع فنی پروژه حفظ شوند تا توسعه Ravi از صفر آغاز نشود و تجربه‌ها، تنظیمات و اصلاحات انجام‌شده از بین نروند.
+### 23.1. Earlier development environment
 
-نکته مهم: این بخش وضعیت موجود را توصیف می‌کند و به این معنی نیست که تمام اجزای آن هم‌اکنون به یک محصول مستقل و نهایی با نام Ravi تبدیل شده‌اند.
+The earlier environment ran on Windows with Docker. LiteLLM was hosted alongside another project. The intended next step was a controlled move to Ravi's own repository, without deleting or disrupting the existing services or data.
 
-## ۲۳.۱. محیط فعلی توسعه
+### 23.2. Earlier Docker infrastructure
 
-محیط فعلی توسعه روی Windows و Docker اجرا می‌شود.
+The historical setup recorded three primary services:
 
-مسیر پروژه میزبان:
-
-```text
-C:\Users\Soroush\Desktop\Persona\soroush-zendedel.github.io
-```
-
-زیرساخت LiteLLM در حال حاضر در همین پروژه و در کنار سایر سرویس‌های آن اجرا می‌شود.
-
-هدف مرحله بعد، انتقال کنترل‌شده این زیرساخت به Repository مستقل Ravi است؛ بدون حذف یا تخریب داده‌ها و سرویس‌های فعلی.
-
-## ۲۳.۲. زیرساخت Docker موجود
-
-در حال حاضر سه سرویس اصلی برای Gateway و زیرساخت پشتیبان آن وجود دارند:
-
-| سرویس | مسئولیت |
+| Service | Responsibility |
 |---|---|
-| `litellm-proxy` | اجرای LiteLLM و ارائه API |
-| `litellm-redis` | سرویس Redis |
-| `litellm-postgres` | پایگاه داده PostgreSQL |
+| `litellm-proxy` | LiteLLM and its API |
+| `litellm-redis` | Redis |
+| `litellm-postgres` | PostgreSQL |
 
-نسخه Image مورد استفاده LiteLLM:
+Recorded versions were LiteLLM `ghcr.io/berriai/litellm:v1.106.6`, Redis 7, and PostgreSQL 18. The API was documented at `http://127.0.0.1:4000`, with `config.yaml` mounted from the host. The recorded Docker network was `litellm-network`.
 
-```text
-ghcr.io/berriai/litellm:v1.106.6
-```
+The old persistent volume names were `soroush-zendedelgithubio_redis_data` and `soroush-zendedelgithubio_postgres_data`. These names are historical and may differ from the current project. They may contain persistent data; do not remove or rename them during migration without an explicit backup and recovery plan.
 
-نسخه Redis:
+### 23.3. Cloudflare Workers AI integration
 
-```text
-Redis 7
-```
+The earlier LiteLLM setup connected to Cloudflare Workers AI using `CLOUDFLARE_AI_BASE_URL` and `CLOUDFLARE_API_TOKEN`. The eight model IDs recorded at that time were:
 
-نسخه PostgreSQL:
-
-```text
-PostgreSQL 18
-```
-
-نام کانتینر اصلی Gateway:
-
-```text
-litellm-proxy
-```
-
-آدرس دسترسی محلی API:
-
-```text
-http://127.0.0.1:4000
-```
-
-فایل پیکربندی اصلی:
-
-```text
-config.yaml
-```
-
-این فایل از میزبان به کانتینر Mount شده است.
-
-شبکه Docker فعلی:
-
-```text
-litellm-network
-```
-
-تنظیمات و داده‌های Redis و PostgreSQL در Volumeهای مستقل نگهداری می‌شوند.
-
-نام Volumeهای فعلی:
-
-```text
-soroush-zendedelgithubio_redis_data
-soroush-zendedelgithubio_postgres_data
-```
-
-این Volumeها حاوی داده‌های پایدار هستند و باید در هر برنامه مهاجرت یا تغییر معماری حفظ شوند.
-
-**ممنوعیت مهم: اجرای `docker compose down -v` یا هر عملیات دیگری که موجب حذف Volumeها و داده‌های موجود شود، بدون درخواست صریح و برنامه بازیابی تأییدشده مجاز نیست.**
-
-## ۲۳.۳. اتصال Cloudflare Workers AI
-
-اتصال LiteLLM به Cloudflare Workers AI در محیط فعلی برقرار شده است.
-
-تنظیمات اتصال از طریق متغیرهای محیطی انجام می‌شود:
-
-```text
-CLOUDFLARE_AI_BASE_URL
-CLOUDFLARE_API_TOKEN
-```
-
-این مقادیر در محیط استقرار نگهداری می‌شوند و نباید داخل Image، کد منبع یا Git قرار گیرند.
-
-مدل‌های فعلی Cloudflare که در `config.yaml` تعریف شده‌اند:
-
-| نام مدل در LiteLLM | مدل Cloudflare |
+| LiteLLM alias | Cloudflare model |
 |---|---|
 | `cf-gpt-oss-20b` | `@cf/openai/gpt-oss-20b` |
 | `cf-gpt-oss-120b` | `@cf/openai/gpt-oss-120b` |
@@ -1142,317 +445,80 @@ CLOUDFLARE_API_TOKEN
 | `cf-qwen3-30b` | `@cf/qwen/qwen3-30b-a3b-fp8` |
 | `cf-glm-4.7-flash` | `@cf/zai-org/glm-4.7-flash` |
 
-این مدل‌ها با شناسه‌های مستقل در پیکربندی فعلی ثبت شده‌اند.
+Multiple model aliases do not create separate Cloudflare quotas. Models using the same account and token remain subject to that account's limits. A routing group such as `cloudflare-coding`, `gemini-pool`, or `coding` should be introduced only when supported by the provider and gateway behavior.
 
-نکته مهم درباره سهمیه:
+### 23.4. Earlier Google Gemini integration
 
-داشتن چند شناسه مدل به معنی داشتن چند سهمیه مستقل Cloudflare نیست. مدل‌هایی که از یک Account و API Token مشترک استفاده می‌کنند، همچنان تابع محدودیت‌ها و سهمیه‌های همان حساب هستند.
+Gemini was configured as a provider alongside Cloudflare. Preserve the integration, but use current upstream model IDs. Ravi's compatibility aliases and validation behavior are documented in [the remediation record](../../plans/ravi-remediation.md).
 
-تعریف چند نام مدل یا چند Deployment در LiteLLM به‌خودی‌خود موجب افزایش سهمیه یا چرخش خودکار میان حساب‌های Cloudflare نمی‌شود.
+### 23.5. Cloudflare transformation patch
 
-در آینده می‌توان سیاست‌های گروهی برای مدل‌ها تعریف کرد؛ برای مثال:
+The earlier integration found that array-form `messages.content` containing text blocks was not accepted consistently by the Cloudflare transformation in LiteLLM. A patch was created at `docker/litellm/transformation.py` to join valid text blocks into a string and call the original transformation through `super()`.
 
-```text
-cloudflare-coding
-gemini-pool
-coding
-```
+The patch was intentionally narrow: only a non-empty list consisting entirely of `{type: "text", text: <string>}` blocks was normalized. Other, including multimodal or mixed, content was preserved. The patch was designed for synchronous and asynchronous use.
 
-اما این سیاست‌ها باید بر اساس قابلیت واقعی Providerها، محدودیت حساب‌ها و امکانات Gateway طراحی شوند.
-
-## ۲۳.۴. اتصال Google Gemini
-
-در پیکربندی فعلی، مدل‌های Gemini نیز به‌عنوان Providerهای قابل استفاده تعریف شده‌اند.
-
-اتصال Gemini باید در نسخه مستقل Ravi حفظ شود و تنظیمات مربوط به آن از طریق متغیرهای محیطی و Configuration خارجی مدیریت شوند.
-
-هدف این است که مصرف‌کنندگان بتوانند بدون تغییر در کد خود، از مدل‌های Gemini در کنار مدل‌های Cloudflare استفاده کنند.
-
-## ۲۳.۵. اصلاح اختصاصی Cloudflare در LiteLLM
-
-در جریان آزمایش واقعی مدل‌های Cloudflare، ناسازگاری در نحوه پردازش محتوای پیام‌ها مشاهده شد.
-
-مشکل به قالب `messages.content` و نحوه تبدیل آن در Adapter مربوط به Cloudflare در LiteLLM ارتباط داشت.
-
-در برخی درخواست‌ها، محتوای متنی به شکل آرایه‌ای از اشیای Text ارسال می‌شد؛ در حالی که مسیر تبدیل پیام Cloudflare انتظار قالب متنی ساده‌تری داشت.
-
-برای رفع این مشکل، Patch اختصاصی روی Transformation مربوط به Cloudflare پیاده‌سازی شد.
-
-فایل Patch در میزبان:
-
-```text
-docker/litellm/transformation.py
-```
-
-مسیر فایل اصلی در کانتینر:
+The old deployment mounted the patch at the version-specific path below:
 
 ```text
 /app/.venv/lib/python3.13/site-packages/litellm/llms/cloudflare/chat/transformation.py
 ```
 
-فایل میزبان به‌صورت Read-only در مسیر موردنظر داخل کانتینر Mount شده است.
+That path is historical. The current project uses a derived LiteLLM image that discovers the installed package location before applying the patch.
 
-پیاده‌سازی Patch:
+### 23.6. Historical patch verification
 
-```python
-def _transform_messages(
-    self,
-    messages: list[AllMessageValues],
-    model: str,
-    is_async: bool = False,
-):
-    normalized_messages = []
+The earlier record states that the host patch was mounted read-only in the real container, that the runtime source referenced the mounted file, and that `CloudflareChatConfig` loaded the override with LiteLLM `v1.106.6`. It also records rebuilding the proxy and inspecting the mount. These results describe that earlier environment and have not been reconfirmed during the present static editing pass.
 
-    for message in messages:
-        content = message.get("content")
+### 23.7. Historical API requests
 
-        if (
-            isinstance(content, list)
-            and content
-            and all(
-                isinstance(item, dict)
-                and item.get("type") == "text"
-                and isinstance(item.get("text"), str)
-                for item in content
-            )
-        ):
-            message = {
-                **message,
-                "content": "".join(item["text"] for item in content),
-            }
+The earlier record documented successful requests to `http://127.0.0.1:4000/chat/completions` for plain text and array-form text, both returning HTTP 200. It noted that those requests did not cover all message shapes, multimodal content, streaming, or every Cloudflare model. Those tests were historical and were not repeated in this pass.
 
-        normalized_messages.append(message)
+### 23.8. Historical secrets
 
-    return super()._transform_messages(
-        normalized_messages,
-        model,
-        is_async=is_async,
-    )
-```
+The earlier LiteLLM container used `LITELLM_MASTER_KEY`, `CLOUDFLARE_AI_BASE_URL`, and `CLOUDFLARE_API_TOKEN`. Real values must never be added to this document, images, or Git. Keep provider and gateway secrets in deployment configuration and determine which layer owns each variable during migration.
 
-ویژگی‌های این اصلاح:
+### 23.9. Historical operational checks
 
-1. فقط پیام‌هایی را تغییر می‌دهد که محتوای آن‌ها آرایه غیرخالی و کاملاً متشکل از Text Blockهای معتبر باشد.
-2. متن Blockها را به یک رشته واحد تبدیل می‌کند.
-3. پیام اصلی را با استفاده از Copy تغییر می‌دهد و ساختار داده ورودی را بی‌دلیل دست‌کاری نمی‌کند.
-4. محتوای چندرسانه‌ای یا محتوای ترکیبی را بدون تغییر حفظ می‌کند.
-5. پردازش اصلی LiteLLM را از طریق `super()` فراخوانی می‌کند.
-6. هم در مسیر Sync و هم در مسیر Async از منطق اصلی تبدیل پیام استفاده می‌کند.
+The earlier notes record successful Compose configuration validation, patch mount inspection, runtime class loading, secret presence, LiteLLM startup logs, no pending migration at that time, and real plain-text and array-content API requests. Convert relevant checks into repeatable tests for the independent Ravi repository. The checks were not run during the current editing pass.
 
-این Patch به‌جای جایگزین‌کردن کامل رفتار LiteLLM، فقط یک مرحله نرمال‌سازی محدود پیش از اجرای منطق اصلی اضافه می‌کند.
+### 23.10. Historical component status
 
-## ۲۳.۶. اعتبارسنجی Patch در کانتینر واقعی
-
-Patch فقط در سطح کد بررسی نشده است؛ بارگذاری آن در کانتینر واقعی نیز اعتبارسنجی شده است.
-
-موارد تأییدشده:
-
-- فایل میزبان به مسیر موردنظر در کانتینر Mount شده است.
-- Mount به‌صورت Read-only انجام می‌شود.
-- Source بارگذاری‌شده در Runtime به فایل Mount‌شده اشاره می‌کند.
-- متد موردنظر در کلاس `CloudflareChatConfig` به‌درستی Override شده است.
-- اجرای Patch در محیط واقعی Python تأیید شده است.
-- نسخه LiteLLM مورد استفاده در این آزمایش `v1.106.6` است.
-
-برای اعمال Patch، کانتینر LiteLLM با دستور زیر بازسازی شده است:
-
-```powershell
-docker compose up -d --force-recreate litellm
-```
-
-همچنین وضعیت Mount از طریق `docker inspect` بررسی شده است.
-
-## ۲۳.۷. آزمایش واقعی API
-
-پس از اعمال Patch، دو درخواست واقعی از مسیر API عمومی LiteLLM به مدل Cloudflare ارسال شده‌اند.
-
-آدرس API:
-
-```text
-http://127.0.0.1:4000/chat/completions
-```
-
-**آزمایش اول: محتوای متنی معمولی**
-
-نتیجه:
-
-```text
-HTTP 200
-Assistant: CLOUDFLARE_OK
-```
-
-<badge color="success">موفق</badge>
-
-**آزمایش دوم: محتوای متنی در قالب آرایه**
-
-نتیجه:
-
-```text
-HTTP 200
-Assistant: CLOUDFLARE_ARRAY_OK
-```
-
-<badge color="success">موفق</badge>
-
-این آزمایش نشان می‌دهد که مسیر واقعی درخواست از API عمومی LiteLLM تا Cloudflare، با Patch فعلی، برای هر دو قالب آزمایش‌شده کار می‌کند.
-
-البته این دو آزمایش به‌تنهایی به معنی پوشش کامل تمام حالت‌های پیام، محتوای چندرسانه‌ای، Streaming یا تمام مدل‌های Cloudflare نیستند. این موارد باید در مجموعه تست‌های رسمی Ravi پوشش داده شوند.
-
-## ۲۳.۸. تنظیمات و متغیرهای محرمانه
-
-در محیط فعلی، متغیرهای مهم زیر در کانتینر LiteLLM قابل دسترسی بوده‌اند:
-
-```text
-LITELLM_MASTER_KEY
-CLOUDFLARE_AI_BASE_URL
-CLOUDFLARE_API_TOKEN
-```
-
-مقادیر واقعی این متغیرها نباید در این سند یا Repository ثبت شوند.
-
-همچنین نباید برای رفع مشکلات احراز هویت، Master Key یا اطلاعات محرمانه داخل فایل‌های عمومی یا Image قرار داده شوند.
-
-در مهاجرت به Ravi باید مشخص شود که کدام متغیرها در سطح Gateway و کدام‌یک در سطح استقرار Ravi مدیریت می‌شوند.
-
-## ۲۳.۹. اعتبارسنجی تنظیمات و وضعیت سرویس
-
-در محیط فعلی موارد زیر انجام شده‌اند:
-
-- اجرای `docker compose config -q` و عبور موفق از اعتبارسنجی Compose.
-- بررسی وضعیت Mount مربوط به Patch.
-- بررسی بارگذاری کلاس و متد اصلاح‌شده در Runtime.
-- بررسی وجود `LITELLM_MASTER_KEY` و متغیرهای اتصال Cloudflare در محیط کانتینر.
-- مشاهده تکمیل راه‌اندازی برنامه LiteLLM در Logها.
-- مشاهده نبود Migration معوق در زمان بررسی.
-- آزمایش واقعی درخواست متنی و درخواست آرایه‌ای از مسیر API.
-
-این موارد باید هنگام ایجاد نسخه مستقل Ravi به تست‌های تکرارپذیر تبدیل شوند.
-
-## ۲۳.۱۰. وضعیت فعلی اجزا
-
-| جزء | وضعیت فعلی | توضیحات |
+| Component | Earlier recorded status | Notes |
 |---|---|---|
-| Docker Compose | موجود و اجراشده | زیرساخت فعلی LiteLLM |
-| LiteLLM | اجراشده | نسخه `v1.106.6` |
-| Redis | موجود | Redis 7 |
-| PostgreSQL | موجود | PostgreSQL 18 |
-| Cloudflare Workers AI | متصل | هشت شناسه مدل در پیکربندی |
-| Gemini | پیکربندی‌شده | Provider ابری |
-| Cloudflare Transformation Patch | پیاده‌سازی‌شده | Mount به‌صورت Read-only |
-| Runtime Patch Verification | تأییدشده | فایل اصلاح‌شده در Runtime بارگذاری شده |
-| Plain Text API Test | موفق | HTTP 200 |
-| Array Text API Test | موفق | HTTP 200 |
-| Compose Configuration Validation | موفق | `docker compose config -q` |
-| Ravi Core مستقل | هنوز پیاده‌سازی نشده | نیازمند توسعه |
-| Repository مستقل Ravi | هنوز ایجاد نشده | مأموریت اولیه |
-| Docker Image مستقل Ravi | هنوز ایجاد نشده | مأموریت اولیه |
-| Ravi Integration Layer | هنوز پیاده‌سازی نشده | در نقشه راه |
-| Local AI Integration | در برنامه آینده | Ollama و vLLM |
-| Agent Integration | در برنامه آینده | پس از ارزیابی ابزارهای موجود |
-| Memory Integration | در برنامه آینده | پس از ارزیابی ابزارهای موجود |
-| Routing اختصاصی Ravi | هنوز پیاده‌سازی نشده | ابتدا بررسی امکانات LiteLLM |
+| Docker Compose | Running | LiteLLM infrastructure |
+| LiteLLM | Running | `v1.106.6` |
+| Redis | Present | Redis 7 |
+| PostgreSQL | Present | PostgreSQL 18 |
+| Cloudflare Workers AI | Connected | Eight model IDs recorded |
+| Gemini | Configured | Cloud provider |
+| Cloudflare transformation patch | Implemented | Previously mounted read-only |
+| Runtime patch verification | Reported complete | Historical result |
+| Plain-text API request | Reported successful | HTTP 200 |
+| Array-text API request | Reported successful | HTTP 200 |
+| Independent Ravi Core | Not implemented in that baseline | Future development |
+| Independent repository and image | Not yet created in that baseline | Initial objective |
+| Ravi Integration Layer | Not implemented in that baseline | Roadmap |
+| Local AI, agents, and memory | Planned | Evaluate existing tools first |
+| Ravi-owned routing | Not implemented in that baseline | Evaluate LiteLLM first |
 
-## ۲۳.۱۱. الزامات مهاجرت زیرساخت فعلی به Ravi
+### 23.11. Migration requirements
 
-انتقال زیرساخت فعلی باید به‌صورت یک پروژه مهاجرت مستقل و کنترل‌شده انجام شود.
+Treat migration as a separate, controlled project. Preserve the LiteLLM version until an upgrade has been planned and tested; model/provider configuration; Cloudflare and Gemini settings without secrets; the Cloudflare patch and its tests; PostgreSQL and Redis data as required; existing volumes; network settings; consumer API endpoints; authentication information; and access policies.
 
-مواردی که باید حفظ شوند:
+Do not begin migration by deleting old services. First back up configuration and persistent data, record containers, volumes, and networks, create an isolated Ravi deployment, transfer configuration and the patch in a controlled way, verify provider compatibility, run API tests, compare behavior, plan consumer endpoint changes, and preserve rollback. Keep the earlier deployment usable until the independent deployment has been fully tested.
 
-1. نسخه فعلی LiteLLM تا زمان برنامه‌ریزی و آزمایش ارتقا.
-2. فایل پیکربندی مدل‌ها و Providerها.
-3. تنظیمات Cloudflare و Gemini، بدون افشای Secretها.
-4. Patch اختصاصی Cloudflare و تست‌های آن.
-5. داده‌های PostgreSQL.
-6. داده‌های Redis، در حدی که برای استمرار سرویس لازم است.
-7. Volumeهای موجود.
-8. تنظیمات شبکه و ارتباطات Docker.
-9. API Endpointهای مورد استفاده پروژه فعلی.
-10. اطلاعات احراز هویت و تنظیمات دسترسی.
+### 23.12. Remaining roadmap from the earlier baseline
 
-مهاجرت نباید با حذف سرویس‌های قبلی شروع شود.
+1. Stabilize the gateway: keep the patch versioned, add automated transformation tests, cover synchronous and asynchronous paths, assess mixed and multimodal content, document the LiteLLM version and patch process, and evaluate contributing the fix upstream.
+2. Establish the independent repository: transfer required files and documentation with history where practical, separate configuration from code and images, create independent Compose deployment, and allow coexistence during migration.
+3. Complete the first independent deployment: retain LiteLLM as gateway, include PostgreSQL and Redis only with defined need and data policy, transfer provider settings, apply the patch reproducibly, test API and health, and use LiteLLM's official interface.
+4. Prepare external consumers: document endpoints and authentication, provide Python and JavaScript examples, explain model use, and test a separate consumer project.
+5. Grow Ravi Core gradually after the gateway and deployment are stable. Do not duplicate LiteLLM merely to have a custom core.
 
-روش پیشنهادی:
+### Historical summary
 
-- تهیه نسخه پشتیبان از Configuration و داده‌های پایدار.
-- ثبت دقیق وضعیت فعلی کانتینرها، Volumeها و شبکه‌ها.
-- ایجاد Repository مستقل Ravi.
-- ایجاد Compose مستقل در محیط آزمایشی.
-- انتقال کنترل‌شده Configuration و Patch.
-- بررسی سازگاری و اتصال Providerها.
-- اجرای تست‌های API.
-- مقایسه رفتار نسخه جدید و محیط فعلی.
-- برنامه‌ریزی برای تغییر Endpoint مصرف‌کنندگان.
-- حفظ امکان Rollback به وضعیت قبلی.
+The earlier starting point was not an empty project: it documented a running LiteLLM deployment, Redis and PostgreSQL, Cloudflare and Gemini configuration, a Cloudflare message patch, and two successful historical API requests. Preserve that work when migrating to an independent, publishable, extensible open-source product.
 
-تا زمانی که استقرار مستقل Ravi به‌طور کامل آزمایش نشده است، زیرساخت فعلی باید سالم و قابل استفاده باقی بماند.
-
-## ۲۳.۱۲. کارهای باقی‌مانده براساس وضعیت فعلی
-
-با توجه به آنچه تاکنون واقعاً پیاده‌سازی شده، اولویت‌های بعدی به این ترتیب هستند:
-
-**اولویت اول: تثبیت وضعیت فعلی**
-
-- نگهداری Patch در محل نسخه‌بندی‌شده.
-- تهیه تست‌های خودکار برای تبدیل محتوای پیام.
-- آزمایش حالت‌های Sync و Async.
-- بررسی حالت‌های ترکیبی و چندرسانه‌ای.
-- مستندسازی نسخه LiteLLM و نحوه اعمال Patch.
-- بررسی امکان ارسال اصلاح به پروژه اصلی LiteLLM برای حذف نیاز به Patch اختصاصی در آینده.
-
-**اولویت دوم: ساخت Repository مستقل Ravi**
-
-- ایجاد مخزن مستقل.
-- انتقال فایل‌های لازم با حفظ تاریخچه و مستندات موردنیاز.
-- ایجاد ساختار اولیه Repository.
-- تفکیک Configuration از کد و Image.
-- ایجاد Docker Compose مستقل.
-- حفظ امکان اجرای هم‌زمان با زیرساخت قبلی در زمان آزمایش.
-
-**اولویت سوم: ساخت اولین استقرار مستقل**
-
-- استفاده از LiteLLM به‌عنوان Gateway.
-- اتصال PostgreSQL و Redis فقط در صورت نیاز واقعی و با سیاست نگهداری مشخص.
-- انتقال تنظیمات Cloudflare و Gemini.
-- اعمال Patch به‌شکل قابل تکرار.
-- تست API و سلامت سرویس.
-- استفاده از رابط مدیریتی اصلی LiteLLM.
-
-**اولویت چهارم: آماده‌سازی برای مصرف‌کنندگان خارجی**
-
-- مستندسازی Endpoint.
-- تعریف روش احراز هویت.
-- ارائه نمونه اتصال Python و JavaScript.
-- مستندسازی روش استفاده از مدل‌ها.
-- آزمایش اتصال یک پروژه مستقل به Ravi.
-
-**اولویت پنجم: توسعه تدریجی هسته Ravi**
-
-پس از تثبیت Gateway و استقرار مستقل، توسعه Ravi Core و Integration Layer آغاز شود.
-
-این توسعه نباید صرفاً به‌خاطر داشتن یک هسته اختصاصی، قابلیت‌های موجود LiteLLM را تکرار کند.
-
----
-
-## جمع‌بندی وضعیت پروژه
-
-Ravi هنوز به‌عنوان یک Repository و محصول مستقل ایجاد نشده است؛ اما بخش مهمی از زیرساخت اولیه آن در قالب LiteLLM و اتصال به Providerهای ابری پیاده‌سازی و آزمایش شده است.
-
-در حال حاضر:
-
-- LiteLLM در Docker اجرا می‌شود.
-- Redis و PostgreSQL در کنار آن وجود دارند.
-- Cloudflare Workers AI متصل شده است.
-- هشت شناسه مدل Cloudflare تعریف شده‌اند.
-- Gemini نیز در تنظیمات موجود است.
-- یک Patch مشخص برای سازگاری پیام‌های متنی آرایه‌ای Cloudflare پیاده‌سازی شده است.
-- Patch در کانتینر واقعی بارگذاری و بررسی شده است.
-- دو آزمایش واقعی API با پاسخ HTTP 200 موفق بوده‌اند.
-- فایل‌های پیکربندی و داده‌های فعلی باید در مهاجرت حفظ شوند.
-
-بنابراین نقطه شروع Ravi یک پروژه کاملاً خالی نیست.
-
-**ما یک زیرساخت عملیاتی و آزمایش‌شده در اختیار داریم که باید با حفظ دستاوردهای آن، به یک محصول مستقل، قابل انتشار، قابل توسعه و متن‌باز تبدیل شود.**
-
-هدف مرحله بعد، بازنویسی LiteLLM یا ساخت یک پنل مدیریتی جدید نیست؛ بلکه ساخت Ravi به‌عنوان لایه‌ای مستقل برای یکپارچه‌سازی، استقرار و هماهنگی ابزارهای موجود است.
+The next stage is not to rewrite LiteLLM or create another management console. It is to establish Ravi as an independent layer for integrating, deploying, and coordinating existing tools.
 
 *Ravi — Intelligence, Everywhere.*

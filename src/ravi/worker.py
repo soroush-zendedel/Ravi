@@ -32,7 +32,7 @@ def _db():
     if url:
         return psycopg2.connect(url)
     return psycopg2.connect(
-        host=os.environ.get("POSTGRES_HOST", "postgres"),
+        host=os.environ.get("POSTGRES_HOST", "db"),
         port=int(os.environ.get("POSTGRES_PORT", "5432")),
         user=os.environ.get("POSTGRES_USER", "ravi"),
         password=os.environ.get("POSTGRES_PASSWORD", ""),

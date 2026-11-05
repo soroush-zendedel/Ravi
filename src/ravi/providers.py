@@ -30,8 +30,8 @@ PROVIDERS: dict[str, Provider] = {
         signup_url="https://aistudio.google.com/apikey",
         env_keys=["GEMINI_API_KEY_1"],
         models=[
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash-lite",
             "gemini-2.5-flash",
             "gemini-3.5-flash-lite",
         ],
@@ -127,16 +127,30 @@ PROVIDERS: dict[str, Provider] = {
 MODEL_SNIPPETS: dict[str, list[dict]] = {
     "gemini": [
         {
+            "model_name": "gemini-3.5-flash",
+            "litellm_params": {
+                "model": "gemini/gemini-3.5-flash",
+                "api_key": "os.environ/GEMINI_API_KEY_1",
+            },
+        },
+        {
+            "model_name": "gemini-2.5-flash-lite",
+            "litellm_params": {
+                "model": "gemini/gemini-2.5-flash-lite",
+                "api_key": "os.environ/GEMINI_API_KEY_1",
+            },
+        },
+        {
             "model_name": "gemini-2.0-flash",
             "litellm_params": {
-                "model": "gemini/gemini-2.0-flash",
+                "model": "gemini/gemini-3.5-flash",
                 "api_key": "os.environ/GEMINI_API_KEY_1",
             },
         },
         {
             "model_name": "gemini-2.0-flash-lite",
             "litellm_params": {
-                "model": "gemini/gemini-2.0-flash-lite",
+                "model": "gemini/gemini-3.5-flash-lite",
                 "api_key": "os.environ/GEMINI_API_KEY_1",
             },
         },

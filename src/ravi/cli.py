@@ -23,6 +23,7 @@ from ravi.configedit import (
     ensure_provider_models,
     existing_model_names,
     load_config,
+    validate_config,
 )
 from ravi.providers import PROVIDERS, get_provider, provider_ids
 from ravi.stages import StageRunner, banner, run_command_with_logs
@@ -95,6 +96,15 @@ def local_laya(
         _say(f"Downloading Laya [cyan]{model}[/] into models/laya/ ...")
         try:
             dest = layadl.pull(root, model)
+            normalized = model.strip().lower()
+            multilingual = normalized in ("laya-multilingual", "multilingual", "multi")
+            selected_model = "laya-multilingual" if multilingual else "laya-english"
+            eu.write_env_value(
+                eu.env_path(root),
+                "RAVI_LAYA_VARIANT",
+                "multilingual" if multilingual else "english",
+            )
+            eu.write_env_value(eu.env_path(root), "RAVI_LAYA_MODEL", selected_model)
             _ok(f"Saved -> {dest}")
             _say("Then: [cyan]docker compose --profile laya up -d laya[/]")
         except Exception as e:
@@ -293,8 +303,8 @@ def _resolve_chat_model(
             "qwen3-4b-instruct-2507-q4km",
             "local-qwen2.5-7b",
             "local-qwen2.5-3b",
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash-lite",
             "gemini-3.5-flash-lite",
             "groq-llama-3.1-8b",
             "cf-gpt-oss-20b",
@@ -917,6 +927,11 @@ def start(
                     if not cur or not str(cur).startswith("local-"):
                         _activate_local_model(root, auto.ollama_name)
                         env = eu.parse_env(eu.env_path(root))
+                    if auto.source == "gguf" and auto.path:
+                        eu.write_env_value(
+                            eu.env_path(root), "RAVI_LOCAL_GGUF", str(auto.path)
+                        )
+                        env["RAVI_LOCAL_GGUF"] = str(auto.path)
                     runner.done("local", f"{auto.ollama_name} ({auto.source})")
                 else:
                     runner.skip("local", "none found (optional)")
@@ -1090,6 +1105,9 @@ def stop(
             pass
         _err(str(e))
         raise typer.Exit(e.returncode)
+
+
+@app.command()
 def restart() -> None:
     """Restart the stack."""
     stop(volumes=False)
@@ -2009,6 +2027,24 @@ def config_show() -> None:
     )
 
 
+@config_app.command("validate")
+def config_validate() -> None:
+    """Validate model IDs and report provider identifiers needing review."""
+    root = _root()
+    cfg = load_config(root / "config.yaml")
+    issues = validate_config(cfg)
+    errors = [issue for issue in issues if issue.severity == "error"]
+    for issue in issues:
+        if issue.severity == "error":
+            _err(issue.message)
+        else:
+            _warn(issue.message)
+    if errors:
+        raise typer.Exit(1)
+    if not issues:
+        _ok("Configured Gemini model IDs are verified.")
+
+
 @config_app.command("backend")
 def config_backend(
     name: str = typer.Argument(..., help="llama | ollama"),
@@ -2310,20 +2346,23 @@ def smartlog_cmd(
     _ok(f"RAVI_SMART_LOG → [bold]{state}[/]")
 
     if state == "on":
-        _say("Starting smartlog worker container…")
+        _say("Starting smartlog worker and scheduler containers…")
         try:
             cmd = [
                 "docker",
                 "compose",
                 "-f",
                 str(root / "docker-compose.yml"),
+                "--profile",
+                "smartlog",
                 "up",
                 "-d",
                 "worker",
+                "worker-beat",
             ]
             p = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
             if p.returncode == 0:
-                _ok("Worker is up (profile: smartlog).")
+                _ok("Worker and scheduler are up (profile: smartlog).")
             else:
                 _warn(
                     "Could not start worker automatically.\n"
@@ -2391,10 +2430,13 @@ def workers_web(
                     str(root / "docker-compose.yml"),
                     "--profile",
                     "flower",
+                    "--profile",
+                    "smartlog",
                     "up",
                     "-d",
                     "redis",
                     "worker",
+                    "worker-beat",
                     "flower",
                 ],
                 cwd=str(root),

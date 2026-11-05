@@ -32,10 +32,13 @@ def laya_enabled(env: dict[str, str]) -> bool:
 
 def laya_model_name(env: dict[str, str]) -> str:
     # English-only by default (lower RAM); multilingual for large+
+    selected = (env.get("RAVI_LAYA_MODEL") or "").strip().lower()
+    if selected in ("laya-english", "laya-multilingual"):
+        return selected
     variant = (env.get("RAVI_LAYA_VARIANT") or "english").strip().lower()
     if variant in ("multilingual", "multi", "full"):
-        return env.get("RAVI_LAYA_MODEL") or "laya-multilingual"
-    return env.get("RAVI_LAYA_MODEL") or "laya-english"
+        return "laya-multilingual"
+    return "laya-english"
 
 
 def laya_api_base(env: dict[str, str]) -> str:

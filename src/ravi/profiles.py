@@ -20,6 +20,7 @@ PROFILE_KEYS = [
     "RAVI_SENTRY",
     "RAVI_LAYA",
     "RAVI_LAYA_VARIANT",
+    "RAVI_LAYA_MODEL",
 ]
 
 
@@ -41,7 +42,7 @@ def load_profiles(root: Path) -> dict[str, Any]:
 
 def current_env_slice(root: Path) -> dict[str, str]:
     env = eu.parse_env(eu.env_path(root)) if eu.env_path(root).is_file() else {}
-    return {k: env.get(k, "off") for k in PROFILE_KEYS}
+    return {k: env.get(k, "" if k == "RAVI_LAYA_MODEL" else "off") for k in PROFILE_KEYS}
 
 
 def save_custom_snapshot(root: Path, extra: dict | None = None) -> None:
@@ -104,10 +105,68 @@ def stop_services(root: Path, names: list[str]) -> list[str]:
 
 def start_services(root: Path, names: list[str], *, web_uis: bool = False) -> list[str]:
     notes = []
-    # base up
-    args = ["up", "-d"]
-    profiles: list[str] = []
+    env = eu.parse_env(eu.env_path(root)) if eu.env_path(root).is_file() else {}
     services = list(names)
+    backend = (env.get("RAVI_LLM_BACKEND") or "llama").strip().lower()
+    llm_on = (env.get("RAVI_LLM") or "on").strip().lower() not in (
+        "off",
+        "0",
+        "false",
+        "no",
+    )
+
+    if not llm_on:
+        for name in ("llama", "ollama"):
+            if name in services:
+                services.remove(name)
+                notes.append(f"skip {name}: RAVI_LLM is off")
+    elif backend == "ollama" and "llama" in services:
+        services.remove("llama")
+        if "ollama" not in services:
+            services.append("ollama")
+    elif backend not in ("llama", "llama.cpp", "llamacpp") and "llama" in services:
+        services.remove("llama")
+        notes.append("skip llama: another local backend is selected")
+
+    if "llama" in services:
+        from ravi.ready import _llama_model_available
+        if not _llama_model_available(root, env):
+            services.remove("llama")
+            if (env.get("RAVI_LOCAL_MODEL") or "").strip():
+                if "ollama" not in services:
+                    services.append("ollama")
+            else:
+                notes.append("skip llama: no GGUF model is available")
+
+    laya_on = (env.get("RAVI_LAYA") or "off").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+    if "laya" in services and not laya_on:
+        services.remove("laya")
+        notes.append("skip laya: RAVI_LAYA is off")
+    if "laya" in services:
+        from ravi import laya_download as layadl
+
+        if not layadl.detect(root).get("wanted_present"):
+            services.remove("laya")
+            notes.append("skip laya: selected local weights are missing")
+
+    smartlog_on = (env.get("RAVI_SMART_LOG") or "off").strip().lower() in (
+        "on",
+        "1",
+        "true",
+        "yes",
+    )
+    if not smartlog_on:
+        for name in ("worker", "worker-beat"):
+            if name in services:
+                services.remove(name)
+                notes.append(f"skip {name}: RAVI_SMART_LOG is off")
+
+    profiles: list[str] = []
     if web_uis or "flower" in services:
         profiles.extend(["--profile", "flower"])
     if web_uis or "glitchtip" in services:
@@ -116,6 +175,10 @@ def start_services(root: Path, names: list[str], *, web_uis: bool = False) -> li
         profiles.extend(["--profile", "laya"])
     if "llama" in services:
         profiles.extend(["--profile", "llama"])
+    if "ollama" in services:
+        profiles.extend(["--profile", "ollama"])
+    if "worker" in services or "worker-beat" in services:
+        profiles.extend(["--profile", "smartlog"])
     # dedupe services list while preserving order
     seen = set()
     svc = []
@@ -123,6 +186,9 @@ def start_services(root: Path, names: list[str], *, web_uis: bool = False) -> li
         if s not in seen:
             seen.add(s)
             svc.append(s)
+    if not svc:
+        notes.append("no configured services are available to start")
+        return notes
     cmd_extra = profiles + ["up", "-d"] + svc
     code, out = _compose(root, *cmd_extra)
     notes.append(f"up {','.join(svc)}: {'ok' if code == 0 else out[:120]}")
@@ -160,9 +226,9 @@ def apply_profile(root: Path, name: str) -> dict[str, Any]:
         stop = []
         keep = ["redis", "db", "litellm", "llama"]
         if snap.get("RAVI_SMART_LOG", "off").lower() in ("on", "1", "true"):
-            keep.append("worker")
+            keep.extend(["worker", "worker-beat"])
         else:
-            stop.append("worker")
+            stop.extend(["worker", "worker-beat"])
         if snap.get("RAVI_SENTRY", "off").lower() not in ("on", "1", "true"):
             stop.append("glitchtip")
         stop.append("flower")  # web still on-demand unless user starts it

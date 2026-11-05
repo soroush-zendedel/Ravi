@@ -64,8 +64,8 @@ def ensure_cloud_model(root: Path, console, ask_input) -> dict[str, Any]:
 
     # Detect any cloud key present
     key_map = [
-        ("gemini", "GEMINI_API_KEY_1", "gemini-2.0-flash"),
-        ("gemini", "GEMINI_API_KEY", "gemini-2.0-flash"),
+        ("gemini", "GEMINI_API_KEY_1", "gemini-3.5-flash"),
+        ("gemini", "GEMINI_API_KEY", "gemini-3.5-flash"),
         ("groq", "GROQ_API_KEY", "groq-llama-3.1-8b"),
         ("openrouter", "OPENROUTER_API_KEY", "openrouter-llama-3.3-70b-free"),
         ("openai", "OPENAI_API_KEY", "gpt-4o-mini"),
@@ -95,7 +95,7 @@ def ensure_cloud_model(root: Path, console, ask_input) -> dict[str, Any]:
     # Interactive selection
     console.print("[bold cyan]Cloud setup[/] — no API key found yet.")
     providers = [
-        ("1", "gemini", "GEMINI_API_KEY_1", "gemini-2.0-flash", "Google Gemini (free tier)"),
+        ("1", "gemini", "GEMINI_API_KEY_1", "gemini-3.5-flash", "Google Gemini (free tier)"),
         ("2", "groq", "GROQ_API_KEY", "groq-llama-3.1-8b", "Groq (free tier)"),
         ("3", "openrouter", "OPENROUTER_API_KEY", "openrouter-llama-3.3-70b-free", "OpenRouter free"),
         ("4", "openai", "OPENAI_API_KEY", "gpt-4o-mini", "OpenAI"),

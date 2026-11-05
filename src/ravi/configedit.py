@@ -2,12 +2,77 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import yaml
 
 from ravi.providers import MODEL_SNIPPETS
+
+
+VERIFIED_GEMINI_MODEL_IDS = frozenset(
+    {
+        "gemini-2.5-flash",
+        "gemini-2.5-flash-lite",
+        "gemini-2.5-pro",
+        "gemini-3.1-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.5-flash-lite",
+        "gemini-3.6-flash",
+        "gemini-3.7-flash",
+        "gemini-3.8-flash",
+    }
+)
+RETIRED_GEMINI_MODEL_IDS = frozenset(
+    {
+        "gemini-2.0-flash",
+        "gemini-2.0-flash-lite",
+        "gemini-3.1-flash-lite-preview",
+    }
+)
+
+
+@dataclass(frozen=True)
+class ConfigIssue:
+    severity: str
+    message: str
+
+
+def validate_config(cfg: dict[str, Any]) -> list[ConfigIssue]:
+    """Check configured Gemini upstream IDs against Ravi's verified model catalog."""
+    issues: list[ConfigIssue] = []
+    for index, entry in enumerate(cfg.get("model_list") or []):
+        if not isinstance(entry, dict):
+            continue
+        params = entry.get("litellm_params") or {}
+        if not isinstance(params, dict):
+            continue
+        upstream = str(params.get("model") or "")
+        if not upstream.startswith("gemini/"):
+            continue
+
+        model_id = upstream.removeprefix("gemini/")
+        name = str(entry.get("model_name") or f"model_list[{index}]")
+        if not model_id:
+            issues.append(
+                ConfigIssue("error", f"{name}: Gemini upstream model ID is empty.")
+            )
+        elif model_id in RETIRED_GEMINI_MODEL_IDS:
+            issues.append(
+                ConfigIssue(
+                    "error",
+                    f"{name}: Gemini model '{model_id}' is retired; update its upstream ID.",
+                )
+            )
+        elif model_id not in VERIFIED_GEMINI_MODEL_IDS:
+            issues.append(
+                ConfigIssue(
+                    "warn",
+                    f"{name}: Gemini model '{model_id}' is not in Ravi's verified model catalog; confirm it against Google's current model list.",
+                )
+            )
+    return issues
 
 
 def load_config(path: Path) -> dict[str, Any]:

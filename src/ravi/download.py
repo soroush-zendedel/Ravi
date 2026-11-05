@@ -244,8 +244,16 @@ def filter_by_ram(
 
 
 def models_dir(root: Path) -> Path:
-    env = os.environ.get("RAVI_MODELS_DIR")
-    d = Path(env).expanduser() if env else root / "models"
+    value = os.environ.get("RAVI_MODELS_DIR")
+    if not value:
+        from ravi import envutil as eu
+
+        env_path = eu.env_path(root)
+        if env_path.is_file():
+            value = eu.parse_env(env_path).get("RAVI_MODELS_DIR")
+    d = Path(value).expanduser() if value else root / "models"
+    if not d.is_absolute():
+        d = root / d
     d.mkdir(parents=True, exist_ok=True)
     return d
 
