@@ -1,0 +1,103 @@
+# ------------------------------------------------------------------
+# Dockerfile.ollama-cpu – Fully offline CPU-only Ollama image
+#
+# Base: Ubuntu (must match the glibc used to build the ollama binary).
+# The included ollama-cpu-build was linked against GLIBC 2.43 (Ubuntu).
+#
+# Required assets under local/:
+#   local/debs/*.deb                 – ca-certificates, curl, libstdc++6 + deps
+#   local/ollama/ollama-cpu-build*.tar.gz
+#
+# Build:
+#   docker build -t ravi-ollama:cpu -f docker/Dockerfile.ollama-cpu .
+# ------------------------------------------------------------------
+
+FROM ubuntu:26.04
+
+# ------------------------------------------------------------------
+# 1. Install runtime packages from local .deb files
+# ------------------------------------------------------------------
+COPY local/debs/ /tmp/debs/
+
+RUN set -e; \
+    echo "==> Installing packages from local/debs/ ..."; \
+    if [ -z "$(ls -A /tmp/debs/*.deb 2>/dev/null)" ]; then \
+        echo "ERROR: No .deb files found in local/debs/."; \
+        echo "       Run scripts/fetch-debs.sh against an Ubuntu mirror."; \
+        exit 1; \
+    fi; \
+    dpkg -i /tmp/debs/*.deb || true; \
+    dpkg -i /tmp/debs/*.deb; \
+    rm -rf /tmp/debs; \
+    if ! ldconfig -p 2>/dev/null | grep -q libstdc++.so.6; then \
+        echo "ERROR: libstdc++.so.6 is missing after package install."; \
+        exit 1; \
+    fi; \
+    echo "==> Local packages installed successfully."
+
+# ------------------------------------------------------------------
+# 2. Install the custom CPU-only Ollama build
+# ------------------------------------------------------------------
+COPY local/ollama/ /tmp/ollama/
+
+RUN set -e; \
+    echo "==> Installing Ollama from local package ..."; \
+    TARBALL=$(ls /tmp/ollama/ollama-cpu-build*.tar.gz /tmp/ollama/ollama-cpu-build*.tgz 2>/dev/null | head -n1); \
+    if [ -z "$TARBALL" ]; then \
+        echo "ERROR: No ollama-cpu-build*.tar.gz (or .tgz) found in local/ollama/."; \
+        exit 1; \
+    fi; \
+    echo "    Using: $(basename "$TARBALL")"; \
+    mkdir -p /tmp/ollama-extract; \
+    tar -xzf "$TARBALL" -C /tmp/ollama-extract; \
+    \
+    if [ -f /tmp/ollama-extract/ollama ]; then \
+        OLLAMA_BIN=/tmp/ollama-extract/ollama; \
+    elif [ -f /tmp/ollama-extract/bin/ollama ]; then \
+        OLLAMA_BIN=/tmp/ollama-extract/bin/ollama; \
+    else \
+        echo "ERROR: Could not find the ollama binary inside the tarball."; \
+        ls -laR /tmp/ollama-extract; \
+        exit 1; \
+    fi; \
+    install -m 755 "$OLLAMA_BIN" /usr/bin/ollama; \
+    \
+    mkdir -p /usr/lib/ollama; \
+    if [ -d /tmp/ollama-extract/llama/build/linux-amd64/runners ]; then \
+        echo "    Installing runners from llama/build/linux-amd64/runners ..."; \
+        cp -a /tmp/ollama-extract/llama/build/linux-amd64/runners /usr/lib/ollama/; \
+    elif [ -d /tmp/ollama-extract/lib/ollama ]; then \
+        cp -a /tmp/ollama-extract/lib/ollama/. /usr/lib/ollama/; \
+    elif [ -d /tmp/ollama-extract/llama ]; then \
+        cp -a /tmp/ollama-extract/llama /usr/lib/ollama/; \
+    fi; \
+    \
+    if [ -d /tmp/ollama-extract/lib ] && [ ! -d /tmp/ollama-extract/lib/ollama ]; then \
+        cp -a /tmp/ollama-extract/lib/. /usr/lib/ollama/ 2>/dev/null || true; \
+    fi; \
+    \
+    rm -rf /usr/lib/ollama/cuda* /usr/lib/ollama/rocm* /usr/lib/ollama/vulkan* 2>/dev/null || true; \
+    rm -rf /tmp/ollama /tmp/ollama-extract; \
+    \
+    if /usr/bin/ollama --version; then \
+        echo "==> Ollama installed successfully."; \
+    else \
+        echo "ERROR: ollama --version failed (glibc / library mismatch)."; \
+        ldd /usr/bin/ollama 2>&1 | head -20 || true; \
+        exit 1; \
+    fi; \
+    echo "    Runners present:"; \
+    find /usr/lib/ollama -type f -name 'ollama_llama_server' 2>/dev/null || true
+
+# ------------------------------------------------------------------
+# 3. Runtime configuration
+# ------------------------------------------------------------------
+ENV OLLAMA_HOST=0.0.0.0:11434
+ENV OLLAMA_MODELS=/models
+ENV LD_LIBRARY_PATH=/usr/lib/ollama
+
+VOLUME ["/models"]
+EXPOSE 11434
+
+ENTRYPOINT ["/usr/bin/ollama"]
+CMD ["serve"]

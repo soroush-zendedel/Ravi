@@ -1,0 +1,118 @@
+#!/bin/sh
+#
+# ravi – Main CLI entry-point for Ravi AI
+#
+# A lightweight, POSIX-compatible wrapper around a managed Ollama
+# container. All heavy lifting is delegated to the library modules
+# under lib/.
+#
+
+# Resolve the real path of this script even when invoked via a symlink
+SELF_PATH="$0"
+if [ -L "$SELF_PATH" ]; then
+    # Prefer readlink -f when available; fall back to a portable method
+    if command -v readlink >/dev/null 2>&1; then
+        SELF_PATH="$(readlink -f "$SELF_PATH" 2>/dev/null || readlink "$SELF_PATH")"
+    fi
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SELF_PATH")" && pwd)"
+
+# Suppress Docker Desktop CLI adverts
+export DOCKER_CLI_HINTS=false
+
+# Source the library modules (order matters)
+. "$SCRIPT_DIR/lib/common.sh"
+. "$SCRIPT_DIR/lib/volume.sh"
+. "$SCRIPT_DIR/lib/container.sh"
+
+# ------------------------------------------------------------------
+# print_help
+# ------------------------------------------------------------------
+print_help() {
+    cat << EOF
+Usage: ravi [command]
+
+Commands:
+  (none)       Enter interactive Ollama chat session
+  install      Ensure persistent volume and start Ollama container
+  start        Start the Ollama container
+  stop         Stop the Ollama container
+  restart      Restart the Ollama container
+  status       Show container, volume, and disk usage status
+  logs         Follow Ollama container logs
+  uninstall    Remove container while preserving models volume
+  run [args]   Execute an ollama command (e.g., ravi run pull llama3.2)
+  help         Show this help message
+
+Any other verb is forwarded to the ollama binary inside the container
+(e.g. "ravi list", "ravi pull qwen2.5:0.5b").
+EOF
+}
+
+# ------------------------------------------------------------------
+# Command dispatcher
+# ------------------------------------------------------------------
+case "$1" in
+    install)
+        check_docker
+        start_ollama_container
+        ;;
+    start)
+        check_docker
+        start_ollama_container
+        ;;
+    stop)
+        check_docker
+        stop_ollama_container
+        ;;
+    restart)
+        check_docker
+        stop_ollama_container
+        start_ollama_container
+        ;;
+    status)
+        check_docker
+        show_status
+        ;;
+    logs)
+        check_docker
+        docker logs -f "$CONTAINER_NAME"
+        ;;
+    uninstall)
+        check_docker
+        uninstall_ollama
+        ;;
+    run)
+        shift
+        check_docker
+        run_ollama_cmd "$@"
+        ;;
+    help|--help|-h)
+        print_help
+        ;;
+    "")
+        # No arguments → interactive chat with the first available model
+        check_docker
+        if ! is_container_running; then
+            echo "Ollama service is not running. Run 'ravi install' or 'ravi start' first."
+            exit 1
+        fi
+
+        MODELS=$(docker exec "$CONTAINER_NAME" ollama list 2>/dev/null | awk 'NR>1 {print $1}')
+        if [ -z "$MODELS" ]; then
+            echo "No models found in persistent volume."
+            echo "Pull a model first using: ravi run pull qwen2.5:0.5b"
+            exit 0
+        fi
+
+        FIRST_MODEL=$(echo "$MODELS" | head -n 1)
+        TARGET_MODEL="${DEFAULT_MODEL:-$FIRST_MODEL}"
+        echo "Starting interactive session with '$TARGET_MODEL' (Type /bye to exit)..."
+        docker exec -it "$CONTAINER_NAME" ollama run "$TARGET_MODEL"
+        ;;
+    *)
+        # Any other verb is forwarded directly to the ollama binary
+        check_docker
+        run_ollama_cmd "$@"
+        ;;
+esac
